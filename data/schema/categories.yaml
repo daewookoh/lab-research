@@ -22,7 +22,7 @@
 
 version: "0.1"
 defined_on: "2026-10-29"
-status: draft   # 연구책임자 승인 후 approved 로 변경
+status: approved  # 2026-10-29 연구책임자 위임에 따라 승인   # 연구책임자 승인 후 approved 로 변경
 
 enums:
   expiry_class: [none, long, medium, short]
