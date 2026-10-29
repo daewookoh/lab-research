@@ -1,0 +1,313 @@
+# 상품 카테고리 체계 v0.1 — 소상공인 장기재고 재유통 대상 품목
+# 백로그: D002 / 작성일: 2026-10-29 / 작성: AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 구조: 대분류(level1) > 중분류(level2) > 소분류(level3). 소분류 30개.
+# 코드 규칙: 대분류 2자, 중분류 "대분류-2자", 소분류 "중분류-3자". 코드는 영구 불변, 이름은 바꿀 수 있음.
+#
+# 소분류 공통 속성 (합성 데이터 생성·Re-Flow Score 항목과 연결하기 위해 미리 둠)
+#   expiry_class : none | long | medium | short
+#       none   = 유통기한 개념 없음 (의류·공구 등)
+#       long   = 사용기한·권장기간 있으나 1년 이상 (세제·화장품 미개봉·문구 등)
+#       medium = 6~18개월 (대부분의 가공식품·건강기능식품)
+#       short  = 6개월 미만 (일부 음료·즉석식품)  → 판매속도·상품잔존성 항목에 직접 영향
+#   seasonality  : [] | summer | winter | holiday(명절·연말) | school(신학기) | spring_fall
+#       → 시즌성 피처(D027)와 시장수요 항목의 기초
+#   size_class   : small | medium | large   (택배 1박스 기준: small=여러 개 합포장 가능, large=개별 대형)
+#       → 물류효율성 항목의 기초
+#   regulation   : none | labeling | permit
+#       none     = 재판매에 별도 제약 없음
+#       labeling = 사용기한·성분·KC 등 표시사항 확인 필요 (화장품·식품·전기용품 등)
+#       permit   = 판매업 신고·허가 등 자격 요건 가능 (건강기능식품·의료기기 등) → 채널적합성 제약
+#   examples     : 소상공인 입력 텍스트에서 자주 보일 상품명 예시 (과제2 추출 테스트용 어휘 시드)
+
+version: "0.1"
+defined_on: "2026-10-29"
+status: draft   # 연구책임자 승인 후 approved 로 변경
+
+enums:
+  expiry_class: [none, long, medium, short]
+  seasonality: [summer, winter, holiday, school, spring_fall]
+  size_class: [small, medium, large]
+  regulation: [none, labeling, permit]
+
+categories:
+
+  - code: FD
+    name: 식품
+    children:
+      - code: FD-PR
+        name: 가공식품
+        children:
+          - code: FD-PR-SNK
+            name: 과자·스낵
+            expiry_class: medium
+            seasonality: [holiday]
+            size_class: small
+            regulation: labeling
+            examples: [감자칩, 쿠키 세트, 젤리, 초콜릿 선물세트, 견과류 믹스]
+          - code: FD-PR-BEV
+            name: 음료·커피·차
+            expiry_class: medium
+            seasonality: [summer, holiday]
+            size_class: medium
+            regulation: labeling
+            examples: [캔커피 24입, 스틱커피, 티백 선물세트, 탄산수, 과즙음료]
+          - code: FD-PR-RTE
+            name: 즉석·가공식품(면·소스·조미료)
+            expiry_class: short
+            seasonality: []
+            size_class: medium
+            regulation: labeling
+            examples: [컵라면 박스, 즉석밥, 레토르트 카레, 파스타 소스, 참기름]
+      - code: FD-HF
+        name: 건강식품
+        children:
+          - code: FD-HF-SUP
+            name: 건강기능식품
+            expiry_class: medium
+            seasonality: [holiday]
+            size_class: small
+            regulation: permit
+            examples: [비타민C, 오메가3, 홍삼 스틱, 프로바이오틱스, 콜라겐 분말]
+
+  - code: LV
+    name: 생활·주방
+    children:
+      - code: LV-CL
+        name: 생활용품
+        children:
+          - code: LV-CL-DET
+            name: 세제·세탁·청소용품
+            expiry_class: long
+            seasonality: []
+            size_class: large
+            regulation: labeling
+            examples: [액체세제 리필, 섬유유연제, 주방세제, 청소포, 곰팡이 제거제]
+          - code: LV-CL-HYG
+            name: 위생·일회용품
+            expiry_class: long
+            seasonality: []
+            size_class: medium
+            regulation: labeling
+            examples: [물티슈 캡형, KF94 마스크, 두루마리 휴지, 종이컵, 지퍼백]
+      - code: LV-KT
+        name: 주방용품
+        children:
+          - code: LV-KT-COK
+            name: 조리도구·식기
+            expiry_class: none
+            seasonality: [holiday]
+            size_class: medium
+            regulation: none
+            examples: [프라이팬 세트, 냄비, 도마, 접시 세트, 스테인리스 컵]
+          - code: LV-KT-STO
+            name: 밀폐용기·수납·정리용품
+            expiry_class: none
+            seasonality: [spring_fall]
+            size_class: medium
+            regulation: none
+            examples: [밀폐용기 세트, 리빙박스, 옷걸이 20개입, 신발정리대, 서랍정리함]
+
+  - code: BT
+    name: 뷰티·건강
+    children:
+      - code: BT-CO
+        name: 화장품
+        children:
+          - code: BT-CO-SKN
+            name: 스킨케어
+            expiry_class: long
+            seasonality: [winter]
+            size_class: small
+            regulation: labeling
+            examples: [수분크림, 토너, 에센스, 마스크팩 10매, 선크림]
+          - code: BT-CO-MKP
+            name: 메이크업
+            expiry_class: long
+            seasonality: [spring_fall]
+            size_class: small
+            regulation: labeling
+            examples: [립스틱, 쿠션 파운데이션, 아이섀도 팔레트, 마스카라, 틴트]
+          - code: BT-CO-HBD
+            name: 헤어·바디·구강
+            expiry_class: long
+            seasonality: []
+            size_class: medium
+            regulation: labeling
+            examples: [샴푸 1L, 바디워시, 핸드크림 세트, 치약 세트, 염색약]
+      - code: BT-HC
+        name: 헬스케어
+        children:
+          - code: BT-HC-MED
+            name: 의료소모품·건강보조기구
+            expiry_class: long
+            seasonality: [winter]
+            size_class: small
+            regulation: permit
+            examples: [체온계, 혈압계, 밴드, 손소독제, 파스]
+
+  - code: FA
+    name: 패션·잡화
+    children:
+      - code: FA-AP
+        name: 의류
+        children:
+          - code: FA-AP-WOM
+            name: 여성의류
+            expiry_class: none
+            seasonality: [summer, winter, spring_fall]
+            size_class: small
+            regulation: none
+            examples: [블라우스, 니트, 원피스, 패딩, 레깅스]
+          - code: FA-AP-MEN
+            name: 남성의류
+            expiry_class: none
+            seasonality: [summer, winter, spring_fall]
+            size_class: small
+            regulation: none
+            examples: [티셔츠, 셔츠, 슬랙스, 점퍼, 기능성 내의]
+          - code: FA-AP-KID
+            name: 아동·유아의류
+            expiry_class: none
+            seasonality: [summer, winter, school]
+            size_class: small
+            regulation: labeling
+            examples: [아동 티셔츠, 유아 내복, 아동 패딩, 아동 수영복, 바디수트]
+      - code: FA-AC
+        name: 잡화
+        children:
+          - code: FA-AC-SHO
+            name: 신발
+            expiry_class: none
+            seasonality: [summer, winter]
+            size_class: medium
+            regulation: none
+            examples: [운동화, 슬리퍼, 부츠, 샌들, 아동 운동화]
+          - code: FA-AC-BAG
+            name: 가방·지갑
+            expiry_class: none
+            seasonality: [school]
+            size_class: medium
+            regulation: none
+            examples: [백팩, 에코백, 크로스백, 지갑, 캐리어]
+          - code: FA-AC-ETC
+            name: 패션소품
+            expiry_class: none
+            seasonality: [summer, winter]
+            size_class: small
+            regulation: none
+            examples: [양말 10족, 모자, 머플러, 벨트, 패션시계]
+
+  - code: DE
+    name: 가전·디지털
+    children:
+      - code: DE-HA
+        name: 생활가전
+        children:
+          - code: DE-HA-SML
+            name: 소형생활가전
+            expiry_class: none
+            seasonality: [holiday]
+            size_class: large
+            regulation: labeling
+            examples: [전기포트, 토스터, 믹서기, 무선청소기, 전기그릴]
+          - code: DE-HA-SEA
+            name: 계절가전
+            expiry_class: none
+            seasonality: [summer, winter]
+            size_class: large
+            regulation: labeling
+            examples: [선풍기, 서큘레이터, 전기히터, 가습기, 전기장판]
+      - code: DE-DG
+        name: 디지털
+        children:
+          - code: DE-DG-ACC
+            name: 디지털 액세서리(모바일·PC)
+            expiry_class: none
+            seasonality: []
+            size_class: small
+            regulation: labeling
+            examples: [휴대폰 케이스, 고속충전기, USB-C 케이블, 마우스, 키보드]
+          - code: DE-DG-AUD
+            name: 음향기기
+            expiry_class: none
+            seasonality: [holiday]
+            size_class: small
+            regulation: labeling
+            examples: [무선 이어폰, 블루투스 스피커, 헤드셋, 유선 이어폰, 마이크]
+
+  - code: HO
+    name: 홈·인테리어
+    children:
+      - code: HO-TX
+        name: 홈패브릭·데코
+        children:
+          - code: HO-TX-BED
+            name: 침구·패브릭
+            expiry_class: none
+            seasonality: [summer, winter]
+            size_class: large
+            regulation: none
+            examples: [차렵이불, 베개커버, 극세사 담요, 커튼, 러그]
+          - code: HO-TX-DEC
+            name: 인테리어소품·조명
+            expiry_class: none
+            seasonality: [holiday]
+            size_class: medium
+            regulation: labeling
+            examples: [LED 무드등, 액자, 조화, 디퓨저, 벽시계]
+      - code: HO-OF
+        name: 사무·공구
+        children:
+          - code: HO-OF-STA
+            name: 문구·사무용품
+            expiry_class: none
+            seasonality: [school]
+            size_class: small
+            regulation: none
+            examples: [다이어리, 볼펜 12입, A4 복사용지, 파일 바인더, 스티커]
+          - code: HO-OF-DIY
+            name: 공구·DIY·철물
+            expiry_class: none
+            seasonality: []
+            size_class: medium
+            regulation: none
+            examples: [전동드릴, 공구세트, 접착제, 줄자, 방충망 보수테이프]
+
+  - code: HB
+    name: 유아·반려·레저
+    children:
+      - code: HB-KD
+        name: 유아·완구
+        children:
+          - code: HB-KD-BAB
+            name: 유아용품
+            expiry_class: medium
+            seasonality: []
+            size_class: large
+            regulation: labeling
+            examples: [기저귀 박스, 물티슈 유아용, 젖병, 이유식 용기, 아기띠]
+          - code: HB-KD-TOY
+            name: 완구·취미
+            expiry_class: none
+            seasonality: [holiday]
+            size_class: medium
+            regulation: labeling
+            examples: [블록 세트, 보드게임, 인형, 퍼즐, 피규어]
+      - code: HB-PL
+        name: 반려·레저
+        children:
+          - code: HB-PL-PET
+            name: 반려동물용품
+            expiry_class: medium
+            seasonality: []
+            size_class: large
+            regulation: labeling
+            examples: [강아지 사료, 고양이 간식, 배변패드, 장난감, 하네스]
+          - code: HB-PL-OUT
+            name: 스포츠·아웃도어
+            expiry_class: none
+            seasonality: [summer, spring_fall]
+            size_class: large
+            regulation: none
+            examples: [요가매트, 캠핑의자, 텐트, 물놀이 튜브, 등산스틱]

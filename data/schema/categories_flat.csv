@@ -1,0 +1,31 @@
+code,name,l1_code,l1_name,l2_code,l2_name,expiry_class,seasonality,size_class,regulation,examples
+FD-PR-SNK,과자·스낵,FD,식품,FD-PR,가공식품,medium,holiday,small,labeling,감자칩|쿠키 세트|젤리|초콜릿 선물세트|견과류 믹스
+FD-PR-BEV,음료·커피·차,FD,식품,FD-PR,가공식품,medium,summer|holiday,medium,labeling,캔커피 24입|스틱커피|티백 선물세트|탄산수|과즙음료
+FD-PR-RTE,즉석·가공식품(면·소스·조미료),FD,식품,FD-PR,가공식품,short,,medium,labeling,컵라면 박스|즉석밥|레토르트 카레|파스타 소스|참기름
+FD-HF-SUP,건강기능식품,FD,식품,FD-HF,건강식품,medium,holiday,small,permit,비타민C|오메가3|홍삼 스틱|프로바이오틱스|콜라겐 분말
+LV-CL-DET,세제·세탁·청소용품,LV,생활·주방,LV-CL,생활용품,long,,large,labeling,액체세제 리필|섬유유연제|주방세제|청소포|곰팡이 제거제
+LV-CL-HYG,위생·일회용품,LV,생활·주방,LV-CL,생활용품,long,,medium,labeling,물티슈 캡형|KF94 마스크|두루마리 휴지|종이컵|지퍼백
+LV-KT-COK,조리도구·식기,LV,생활·주방,LV-KT,주방용품,none,holiday,medium,none,프라이팬 세트|냄비|도마|접시 세트|스테인리스 컵
+LV-KT-STO,밀폐용기·수납·정리용품,LV,생활·주방,LV-KT,주방용품,none,spring_fall,medium,none,밀폐용기 세트|리빙박스|옷걸이 20개입|신발정리대|서랍정리함
+BT-CO-SKN,스킨케어,BT,뷰티·건강,BT-CO,화장품,long,winter,small,labeling,수분크림|토너|에센스|마스크팩 10매|선크림
+BT-CO-MKP,메이크업,BT,뷰티·건강,BT-CO,화장품,long,spring_fall,small,labeling,립스틱|쿠션 파운데이션|아이섀도 팔레트|마스카라|틴트
+BT-CO-HBD,헤어·바디·구강,BT,뷰티·건강,BT-CO,화장품,long,,medium,labeling,샴푸 1L|바디워시|핸드크림 세트|치약 세트|염색약
+BT-HC-MED,의료소모품·건강보조기구,BT,뷰티·건강,BT-HC,헬스케어,long,winter,small,permit,체온계|혈압계|밴드|손소독제|파스
+FA-AP-WOM,여성의류,FA,패션·잡화,FA-AP,의류,none,summer|winter|spring_fall,small,none,블라우스|니트|원피스|패딩|레깅스
+FA-AP-MEN,남성의류,FA,패션·잡화,FA-AP,의류,none,summer|winter|spring_fall,small,none,티셔츠|셔츠|슬랙스|점퍼|기능성 내의
+FA-AP-KID,아동·유아의류,FA,패션·잡화,FA-AP,의류,none,summer|winter|school,small,labeling,아동 티셔츠|유아 내복|아동 패딩|아동 수영복|바디수트
+FA-AC-SHO,신발,FA,패션·잡화,FA-AC,잡화,none,summer|winter,medium,none,운동화|슬리퍼|부츠|샌들|아동 운동화
+FA-AC-BAG,가방·지갑,FA,패션·잡화,FA-AC,잡화,none,school,medium,none,백팩|에코백|크로스백|지갑|캐리어
+FA-AC-ETC,패션소품,FA,패션·잡화,FA-AC,잡화,none,summer|winter,small,none,양말 10족|모자|머플러|벨트|패션시계
+DE-HA-SML,소형생활가전,DE,가전·디지털,DE-HA,생활가전,none,holiday,large,labeling,전기포트|토스터|믹서기|무선청소기|전기그릴
+DE-HA-SEA,계절가전,DE,가전·디지털,DE-HA,생활가전,none,summer|winter,large,labeling,선풍기|서큘레이터|전기히터|가습기|전기장판
+DE-DG-ACC,디지털 액세서리(모바일·PC),DE,가전·디지털,DE-DG,디지털,none,,small,labeling,휴대폰 케이스|고속충전기|USB-C 케이블|마우스|키보드
+DE-DG-AUD,음향기기,DE,가전·디지털,DE-DG,디지털,none,holiday,small,labeling,무선 이어폰|블루투스 스피커|헤드셋|유선 이어폰|마이크
+HO-TX-BED,침구·패브릭,HO,홈·인테리어,HO-TX,홈패브릭·데코,none,summer|winter,large,none,차렵이불|베개커버|극세사 담요|커튼|러그
+HO-TX-DEC,인테리어소품·조명,HO,홈·인테리어,HO-TX,홈패브릭·데코,none,holiday,medium,labeling,LED 무드등|액자|조화|디퓨저|벽시계
+HO-OF-STA,문구·사무용품,HO,홈·인테리어,HO-OF,사무·공구,none,school,small,none,다이어리|볼펜 12입|A4 복사용지|파일 바인더|스티커
+HO-OF-DIY,공구·DIY·철물,HO,홈·인테리어,HO-OF,사무·공구,none,,medium,none,전동드릴|공구세트|접착제|줄자|방충망 보수테이프
+HB-KD-BAB,유아용품,HB,유아·반려·레저,HB-KD,유아·완구,medium,,large,labeling,기저귀 박스|물티슈 유아용|젖병|이유식 용기|아기띠
+HB-KD-TOY,완구·취미,HB,유아·반려·레저,HB-KD,유아·완구,none,holiday,medium,labeling,블록 세트|보드게임|인형|퍼즐|피규어
+HB-PL-PET,반려동물용품,HB,유아·반려·레저,HB-PL,반려·레저,medium,,large,labeling,강아지 사료|고양이 간식|배변패드|장난감|하네스
+HB-PL-OUT,스포츠·아웃도어,HB,유아·반려·레저,HB-PL,반려·레저,none,summer|spring_fall,large,none,요가매트|캠핑의자|텐트|물놀이 튜브|등산스틱

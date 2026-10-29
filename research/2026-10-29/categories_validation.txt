@@ -1,0 +1,22 @@
+검증 통과 (오류 0건)
+version=0.1 status=draft
+대분류 7 / 중분류 14 / 소분류 30
+
+대분류별 소분류 수:
+  FD 식품: 4
+  LV 생활·주방: 4
+  BT 뷰티·건강: 4
+  FA 패션·잡화: 6
+  DE 가전·디지털: 4
+  HO 홈·인테리어: 4
+  HB 유아·반려·레저: 4
+
+expiry_class: long=6, medium=5, none=18, short=1
+size_class: large=7, medium=11, small=12
+regulation: labeling=17, none=11, permit=2
+seasonality(태그 수): holiday=8, school=3, spring_fall=5, summer=9, winter=9
+seasonality 없음: 8
+examples 총 150개
+CSV 저장: data/schema/categories_flat.csv (30행)
+........                                                                 [100%]
+8 passed in 0.13s
