@@ -1,0 +1,16 @@
+$ python -m src.schema.product --today 2026-10-30
+스키마 점검 통과: product.json (draft 2020-12, 최상위 필드 18개, 필수 10개)
+레코드 검증: data/schema/examples/product_examples.jsonl — 15건 중 오류 0건, 경고 1건 (기준일 2026-10-30)
+  #14 [warn] P00000015: spec.size_class=small 가 카테고리 HB-PL-PET 기본 large 와 두 단계 차이
+레코드 15건
+condition_grade: A=5, B=1, C=1, S=8
+packaging_state: box_damaged=2, box_opened=2, no_box=1, repackaged=1, sealed=9
+brand.tier: major=3, mid=5, minor=5, unbranded=1, unknown=1
+대분류: BT=1, DE=2, FA=3, FD=4, HB=2, HO=1, LV=2
+list_price_krw: min=4,500 / median=25,000 / max=89,000
+expiry_date 있음: 8 / 카테고리 expiry_class≠none: 8
+null 허용 필드 채움률: manufacture_date=8/15, expiry_date=8/15, source_text=15/15, spec.weight_g=15/15, spec.dimensions_cm=11/15, spec.net_content=9/15, spec.variant=10/15, brand.name=13/15
+
+$ python -m pytest -q
+.........................                                                [100%]
+25 passed in 0.33s

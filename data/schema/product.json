@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://techplan.example/lab-research/schema/product.json",
+  "title": "Product (상품 속성) v0.1",
+  "description": "소상공인 장기재고 1개 품목(SKU)의 속성 레코드. D003(2026-10-30). 카테고리 코드는 data/schema/categories.yaml 의 소분류 코드를 참조한다. 교차 검증(코드 존재 여부, expiry_class 에 따른 유통기한 필수 등)은 src/schema/product.py 가 수행한다. 상태: draft (연구책임자 승인 전).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "product_id",
+    "name",
+    "category_code",
+    "brand",
+    "list_price_krw",
+    "condition_grade",
+    "packaging_state",
+    "spec",
+    "quantity_on_hand",
+    "acquired_date"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "이 레코드가 따르는 스키마 버전"
+    },
+    "product_id": {
+      "type": "string",
+      "pattern": "^P[0-9]{8}$",
+      "description": "품목 고유 ID. P + 8자리 숫자. 거래 결과(D004)·시세(D005) 테이블이 외래키로 참조한다."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "정규화된 상품명 (브랜드 제외 가능). 원문은 source_text 에 둔다."
+    },
+    "category_code": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}-[A-Z]{2}-[A-Z]{3}$",
+      "description": "categories.yaml 소분류 코드 (예: FD-PR-SNK). 존재 여부는 교차 검증."
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier"],
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "maxLength": 100,
+          "description": "브랜드명. 무브랜드·불명이면 null."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["major", "mid", "minor", "unbranded", "unknown"],
+          "description": "브랜드 인지도 등급(가정). major=전국 인지도(대기업·글로벌), mid=온라인 검색 시 공식몰·리뷰가 충분, minor=소규모·수입 병행, unbranded=무브랜드/OEM, unknown=미확인. 가격경쟁력·시장수요 항목의 피처."
+        }
+      }
+    },
+    "list_price_krw": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 100000000,
+      "description": "정상가(권장소비자가 또는 판매자의 기존 판매가), 원 단위. 1단위(spec.unit_count 묶음 전체) 기준."
+    },
+    "list_price_basis": {
+      "type": "string",
+      "enum": ["msrp", "seller_last_price", "market_estimate", "unknown"],
+      "default": "unknown",
+      "description": "정상가의 근거. msrp=제조사 권장가, seller_last_price=판매자가 마지막으로 판 가격, market_estimate=시세 조회 추정."
+    },
+    "condition_grade": {
+      "type": "string",
+      "enum": ["S", "A", "B", "C"],
+      "description": "상태등급. S=미개봉·신품, A=개봉/전시 흔적 있으나 사용 안 함, B=경미한 흠·변색·포장 훼손이 내용물에 영향 없음, C=기능 이상 없으나 외관 하자 명확 또는 유통기한 임박(3개월 이내). 재유통 불가(파손·기한 경과)는 등급 외 → 입력 거부."
+    },
+    "packaging_state": {
+      "type": "string",
+      "enum": ["sealed", "box_opened", "box_damaged", "no_box", "repackaged"],
+      "description": "포장상태. sealed=밀봉 원박스, box_opened=개봉되었으나 원박스 보존, box_damaged=원박스 찢김·눌림, no_box=박스 없음(벌크), repackaged=판매자가 재포장."
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_count", "size_class"],
+      "description": "규격. 판매 1단위의 구성과 물리적 크기.",
+      "properties": {
+        "unit_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1단위에 들어 있는 낱개 수 (예: 캔커피 24입 → 24, 단품 → 1)"
+        },
+        "net_content": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "낱개 1개의 내용량 수치 (net_unit 과 짝). 해당 없으면 null."
+        },
+        "net_unit": {
+          "type": ["string", "null"],
+          "enum": ["g", "kg", "ml", "L", "ea", "m", null],
+          "description": "내용량 단위"
+        },
+        "size_class": {
+          "type": "string",
+          "enum": ["small", "medium", "large"],
+          "description": "택배 기준 부피 등급(카테고리 기본값을 품목별로 덮어쓸 수 있음). 물류효율성 항목 피처."
+        },
+        "weight_g": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "1단위 총중량(g). 모르면 null."
+        },
+        "dimensions_cm": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["w", "d", "h"],
+          "properties": {
+            "w": {"type": "number", "exclusiveMinimum": 0},
+            "d": {"type": "number", "exclusiveMinimum": 0},
+            "h": {"type": "number", "exclusiveMinimum": 0}
+          },
+          "description": "1단위 외포장 가로·세로·높이(cm). 모르면 null."
+        },
+        "variant": {
+          "type": ["string", "null"],
+          "maxLength": 100,
+          "description": "색상·사이즈·향 등 옵션 표기 (예: '블랙/L', '라벤더향')"
+        }
+      }
+    },
+    "quantity_on_hand": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000,
+      "description": "보유 수량 (spec 1단위 기준)"
+    },
+    "acquired_date": {
+      "type": "string",
+      "format": "date",
+      "description": "매입·입고일 (YYYY-MM-DD). 보유기간 = 기준일 - acquired_date."
+    },
+    "manufacture_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "제조일. 불명이면 null."
+    },
+    "expiry_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "유통기한·사용기한. 카테고리 expiry_class 가 none 이 아니면 필수(교차 검증). none 이면 null."
+    },
+    "attributes": {
+      "type": "object",
+      "description": "카테고리별 자유 속성 (예: {\"color\": \"black\", \"size\": \"L\", \"gender\": \"M\"}). 값은 문자열·숫자·불리언.",
+      "additionalProperties": {"type": ["string", "number", "boolean"]},
+      "maxProperties": 30
+    },
+    "source_text": {
+      "type": ["string", "null"],
+      "maxLength": 2000,
+      "description": "소상공인이 입력한 원문(자유 텍스트). 과제2 LLM 구조화 추출의 입력·골드셋 근거."
+    },
+    "images": {
+      "type": "array",
+      "items": {"type": "string", "format": "uri-reference"},
+      "maxItems": 20,
+      "description": "상품 사진 경로·URL (과제2 멀티모달 실험용). 없으면 빈 배열."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "레코드 생성 시각(ISO 8601)"
+    }
+  }
+}
