@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://techplan.example/lab-research/schema/transaction.json",
+  "title": "Transaction (거래 결과) v0.1",
+  "description": "장기재고 1개 품목(product_id)을 매입한 뒤 1개 판매채널에 1회 등록해 판매를 시도한 결과 레코드. 1레코드 = 1상품 × 1채널 × 1등록. 같은 상품을 채널을 바꿔 다시 등록하면 새 레코드다. D004(2026-11-02). 판매기간(duration_days)·회수율(recovery_rate)은 예측 모델의 목표변수이므로 명시 저장하되, src/schema/transaction.py 가 재계산해 일치 여부를 검증한다. 상태: draft (연구책임자 승인 전).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transaction_id",
+    "product_id",
+    "channel",
+    "purchase",
+    "listing",
+    "outcome",
+    "duration_days",
+    "censored",
+    "recovery_rate"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "이 레코드가 따르는 스키마 버전"
+    },
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^T[0-9]{8}$",
+      "description": "거래 고유 ID. T + 8자리 숫자."
+    },
+    "product_id": {
+      "type": "string",
+      "pattern": "^P[0-9]{8}$",
+      "description": "product.json 의 product_id (외래키). 존재 여부는 교차 검증."
+    },
+    "seller_id": {
+      "type": ["string", "null"],
+      "pattern": "^S[0-9]{6}$",
+      "description": "재고를 넘긴 소상공인(판매자) ID. D005 seller.json 에서 정의. 아직 없으면 null."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["open_market", "own_online", "offline_store", "secondhand_app", "b2b_wholesale", "live_commerce", "social_market"],
+      "description": "판매채널. open_market=스마트스토어·쿠팡 등 오픈마켓, own_online=자사몰, offline_store=오프라인 매장·팝업, secondhand_app=중고거래 앱, b2b_wholesale=도매·땡처리 업자 일괄 매도, live_commerce=라이브커머스, social_market=SNS 공동구매·블로그마켓. 채널 추천(M13)의 라벨."
+    },
+    "purchase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acquisition_type", "buy_price_krw", "buy_date", "quantity"],
+      "description": "재유통 사업자가 소상공인에게서 재고를 넘겨받은 조건.",
+      "properties": {
+        "acquisition_type": {
+          "type": "string",
+          "enum": ["purchase", "consignment"],
+          "description": "purchase=매입(소유권 이전, 매입가 지급), consignment=위탁(판매 후 정산, 매입가 0)."
+        },
+        "buy_price_krw": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000000,
+          "description": "매입가, 원. product.spec 1단위당. 위탁이면 0 (교차 검증)."
+        },
+        "buy_price_basis": {
+          "type": "string",
+          "enum": ["reflow_score", "manual", "negotiated", "unknown"],
+          "default": "unknown",
+          "description": "매입가 산정 근거. reflow_score=규칙 점수 기반 자동 산정, manual=담당자 수기, negotiated=협상."
+        },
+        "buy_date": {
+          "type": "string",
+          "format": "date",
+          "description": "매입(인수)일. product.acquired_date(소상공인 입고일) 이후여야 한다."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "매입 수량 (product.spec 1단위 기준)."
+        }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["listed_date", "listed_price_krw", "quantity"],
+      "description": "채널 등록 조건.",
+      "properties": {
+        "listed_date": {
+          "type": "string",
+          "format": "date",
+          "description": "채널 등록일. 판매기간의 시작점. buy_date 이후."
+        },
+        "listed_price_krw": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 100000000,
+          "description": "등록 판매가, 원, 1단위당."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "이 채널에 등록한 수량. purchase.quantity 이하."
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observed_at", "quantity_sold", "sold_date", "sold_price_krw", "channel_fee_krw", "shipping_cost_krw"],
+      "description": "관측 시점(observed_at) 기준 결과.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["listed", "sold", "partially_sold", "withdrawn", "disposed"],
+          "description": "listed=판매 중(미판매), sold=등록 수량 전부 판매 완료, partially_sold=일부만 팔린 채 판매 중, withdrawn=판매 중단(다른 채널 이전·반품 등), disposed=폐기·기부 종료."
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date",
+          "description": "결과를 관측(스냅샷)한 날짜. 판매 완료·중단·폐기면 그 종료일. listed·partially_sold 면 데이터 추출일. 기준일 이하."
+        },
+        "quantity_sold": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "관측 시점까지 판매된 수량. listing.quantity 이하."
+        },
+        "sold_date": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "등록 수량 전부 판매 완료된 날. status=sold 일 때만 값이 있고 그 외 null."
+        },
+        "sold_price_krw": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "실제 판매 단가(1단위당, 수량가중 평균). 1단위도 안 팔렸으면 null. listed_price_krw 이하."
+        },
+        "channel_fee_krw": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "채널 수수료·광고비 합계, 원. 판매 없으면 0 이상(등록비 등)."
+        },
+        "shipping_cost_krw": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "사업자 부담 배송·물류비 합계, 원. 물류효율성 항목의 실측값."
+        }
+      }
+    },
+    "duration_days": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3650,
+      "description": "판매기간(일) = sold_date − listed_date (status=sold). 그 외 status 는 observed_at − listed_date (관측된 경과일). 목표변수 1."
+    },
+    "censored": {
+      "type": "boolean",
+      "description": "true 면 duration_days 가 '아직 안 팔린 상태로 관측된 경과일'(우측 중도절단: listed·partially_sold·withdrawn). sold·disposed 는 false. 생존분석·회귀 학습 시 구분용."
+    },
+    "recovery_rate": {
+      "type": ["number", "null"],
+      "minimum": -1,
+      "maximum": 20,
+      "description": "회수율 = (sold_price_krw × quantity_sold − channel_fee_krw − shipping_cost_krw) ÷ (buy_price_krw × listing.quantity). 소수점 4자리. 위탁(매입가 0)이면 null. 목표변수 2."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "담당자 메모 (반품 사유, 가격 인하 이력 등 자유 텍스트)."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "레코드 생성 시각(ISO 8601)"
+    }
+  }
+}

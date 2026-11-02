@@ -1,0 +1,30 @@
+$ python -m src.schema.transaction --today 2026-11-02
+스키마 점검 통과: transaction.json (draft 2020-12, 최상위 필드 13개, 필수 9개)
+레코드 검증: data/schema/examples/transaction_examples.jsonl — 18건 중 오류 0건, 경고 4건 (기준일 2026-11-02, 상품 참조 있음 15건)
+  #3 [warn] T00000004: 허가 품목(FD-HF-SUP, regulation=permit)을 secondhand_app 채널에 등록 — 채널 적합성 확인 필요
+  #14 [warn] T00000015: listed_price_krw 72000 가 상품 정상가 69000 초과
+  #15 [warn] T00000016: listing.quantity 120 가 상품 quantity_on_hand 100 초과 (보유 수량은 스냅샷이라 경고만)
+  #17 [warn] T00000018: 수수료+배송비 23,500 가 매출 19,000 초과 (적자)
+레코드 18건
+status: disposed=1, listed=2, partially_sold=4, sold=9, withdrawn=2
+channel: b2b_wholesale=3, live_commerce=3, offline_store=2, open_market=5, own_online=2, secondhand_app=2, social_market=1
+acquisition_type: consignment=1, purchase=17
+buy_price_basis: manual=4, negotiated=4, reflow_score=9, unknown=1
+censored: 8/18
+duration_days(sold): n=9 min=0 median=8 max=56
+duration_days(censored): n=8 min=8 median=29 max=152
+recovery_rate(sold): n=9 min=0.7026 median=1.2289 max=1.4167
+recovery_rate(전체, null 제외): n=17 min=-0.015 median=0.792 max=1.4167
+매입가/등록가 비율: n=17 min=0.347 median=0.571 max=0.692
+참조 상품 수: 15 (복수 채널 등록 상품: 3)
+
+$ python -m src.schema.transaction --today 2026-11-02 --products none
+스키마 점검 통과: transaction.json (draft 2020-12, 최상위 필드 13개, 필수 9개)
+레코드 검증: data/schema/examples/transaction_examples.jsonl — 18건 중 오류 0건, 경고 1건 (기준일 2026-11-02, 상품 참조 없음)
+
+$ python -m pytest -q
+...................................................                      [100%]
+51 passed in 0.26s
+
+$ python -m pytest -q tests/test_transaction.py
+26 passed in 0.17s
