@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://techplan.example/lab-research/schema/market_price.json",
+  "title": "MarketPrice (시세 관측) v0.1",
+  "description": "장기재고 1개 품목(product_id)에 대해 1개 소스(채널·플랫폼)에서 1개 상태(신품/중고)로 1회 조회한 시세 스냅샷. 1레코드 = 1상품 × 1소스 × 1상태 × 1관측일. 같은 상품을 다른 날 다시 조회하면 새 레코드(시계열). D005(2026-11-10). 관측된 등록가의 최소·중앙·최대값과 표본 수를 저장하고, 정상가 대비 비율 등 파생값은 저장하지 않고 src/schema/market_price.py 가 계산한다. 수집 파이프라인(D016~D019)의 출력 형식이자 가격경쟁력·시장수요 항목의 입력. 상태: draft (연구책임자 승인 전).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "price_id",
+    "product_id",
+    "observed_at",
+    "source",
+    "match_type",
+    "condition",
+    "unit_count",
+    "n_listings",
+    "price_min_krw",
+    "price_median_krw",
+    "price_max_krw",
+    "shipping_included"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "이 레코드가 따르는 스키마 버전"
+    },
+    "price_id": {
+      "type": "string",
+      "pattern": "^M[0-9]{8}$",
+      "description": "시세 관측 고유 ID. M + 8자리 숫자."
+    },
+    "product_id": {
+      "type": "string",
+      "pattern": "^P[0-9]{8}$",
+      "description": "product.json 의 product_id (외래키). 존재 여부는 교차 검증. 시세는 '이 상품과 match_type 관계인 상품'의 가격이다."
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date",
+      "description": "조회(크롤링·API 호출·수기 검색)한 날짜. 기준일 이하."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "collected_by"],
+      "description": "어디서 어떻게 조회했는지.",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["open_market", "own_online", "offline_store", "secondhand_app", "b2b_wholesale", "live_commerce", "social_market", "price_comparison"],
+          "description": "transaction.channel 7종 + price_comparison(가격비교 서비스 최저가 집계). 채널별 시세를 따로 두어야 채널 추천(M13)에서 '같은 상품이 채널마다 얼마에 팔리나' 를 쓸 수 있다."
+        },
+        "platform": {
+          "type": ["string", "null"],
+          "maxLength": 50,
+          "description": "플랫폼·사이트 식별자(예: 'naver_shopping', 'coupang', 'bunjang'). D016 소스 조사 후 enum 으로 고정 예정. 수기 조사면 null 가능."
+        },
+        "collected_by": {
+          "type": "string",
+          "enum": ["manual", "api", "crawler", "synthetic"],
+          "description": "수집 방식. manual=담당자 수기 검색, api=공식 API, crawler=크롤러, synthetic=합성 생성(실데이터 아님을 레코드 수준에서 표시)."
+        },
+        "query": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "description": "조회에 쓴 검색어. 재현·디버깅용."
+        }
+      }
+    },
+    "match_type": {
+      "type": "string",
+      "enum": ["exact", "same_model_other_pack", "similar"],
+      "description": "관측 대상과 우리 상품의 관계. exact=동일 상품·동일 구성(unit_count 동일), same_model_other_pack=동일 상품이나 묶음 수가 다름(unit_count 로 환산), similar=동일 카테고리·유사 스펙의 대체 상품(브랜드 다를 수 있음). 유사상품 검색(M7)이 자동으로 채울 필드."
+    },
+    "condition": {
+      "type": "string",
+      "enum": ["new", "used"],
+      "description": "관측 등록물의 상태. new=신품(미개봉), used=중고·개봉. 우리 상품 condition_grade S/A 는 new 시세, B/C 는 used 시세와 비교하는 것이 기본."
+    },
+    "unit_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "관측 등록물 1단위의 낱개 수. product.spec.unit_count 와 다르면 환산(가격 × product.unit_count ÷ unit_count). exact 면 같아야 한다(교차 검증)."
+    },
+    "n_listings": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000,
+      "description": "통계에 쓴 등록물(판매글) 수. 0 이면 시세 없음(가격 3개 모두 null). 시장수요 항목의 보조 신호(공급량)."
+    },
+    "price_min_krw": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "관측 등록가 최소값(원, 관측 1단위 기준). n_listings=0 이면 null."
+    },
+    "price_median_krw": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "관측 등록가 중앙값(원). 대표 시세로 쓴다. min ≤ median ≤ max (교차 검증)."
+    },
+    "price_max_krw": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "관측 등록가 최대값(원)."
+    },
+    "shipping_included": {
+      "type": "boolean",
+      "description": "가격에 배송비 포함 여부. 소스마다 표기가 달라 레코드 수준에서 명시. 비교 시 미포함이면 D019 에서 평균 배송비를 더해 보정."
+    },
+    "sold_count_30d": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "플랫폼이 노출하는 최근 30일 판매량(구매 건수) 합. 노출 안 하면 null. 판매속도 항목의 외부 신호."
+    },
+    "search_index": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "관측일 기준 검색 트렌드 지수(0~100, 네이버 데이터랩식 상대 지수). D017 소스 확정 전까지 자리만 둔다. 없으면 null."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 300,
+      "description": "담당자 메모 (예: '공식몰 품절', '리퍼 제품 섞임')."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "레코드 생성 시각(ISO 8601)"
+    }
+  }
+}

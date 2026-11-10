@@ -12,6 +12,8 @@
      유통기한 경과 후 판매 금지, duration_days·recovery_rate 재계산 일치.
   3) 경고(검증 실패 아님) — 등록가가 정상가 초과, 수수료+배송비가 매출 초과(적자), 등록 수량이 보유 수량 초과,
      regulation=permit 품목을 중고앱·SNS 채널에 등록.
+  (D005 추가) 판매자 파일을 주면 seller_id 존재, buy_date ≥ seller.registered_date,
+     같은 날·같은 상품을 담은 배치가 있으면 acquisition_type 일치(오류) / 같은 날 배치가 없으면 경고.
 """
 from __future__ import annotations
 
@@ -31,6 +33,7 @@ from src.schema.product import EXAMPLES_PATH as PRODUCT_EXAMPLES_PATH, read_json
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "data" / "schema" / "transaction.json"
 EXAMPLES_PATH = REPO_ROOT / "data" / "schema" / "examples" / "transaction_examples.jsonl"
+SELLER_EXAMPLES_PATH = REPO_ROOT / "data" / "schema" / "examples" / "seller_examples.jsonl"
 
 RECOVERY_DECIMALS = 4
 RECOVERY_TOL = 0.5 * 10 ** -RECOVERY_DECIMALS  # 반올림 자릿수 반 단위
@@ -84,8 +87,9 @@ def cross_checks(
     products: dict[str, dict] | None,
     leaves: dict[str, Leaf],
     today: date,
+    sellers: dict[str, dict] | None = None,
 ) -> tuple[list[str], list[str]]:
-    """(오류, 경고). products 가 None 이면 상품 참조 규칙은 건너뛴다(상품 파일 없이 거래만 검증할 때)."""
+    """(오류, 경고). products 가 None 이면 상품 참조 규칙을, sellers 가 None 이면 판매자 참조 규칙을 건너뛴다."""
     errs: list[str] = []
     warns: list[str] = []
     tid = record.get("transaction_id", "?")
@@ -98,6 +102,21 @@ def cross_checks(
         if product is None:
             errs.append(f"[cross] {tid}: product_id {record['product_id']} 가 상품 레코드에 없음")
             return errs, warns
+
+    # 판매자 참조 규칙 (D005)
+    if sellers is not None and record.get("seller_id") is not None:
+        seller = sellers.get(record["seller_id"])
+        if seller is None:
+            errs.append(f"[cross] {tid}: seller_id {record['seller_id']} 가 판매자 레코드에 없음")
+        else:
+            if _d(p["buy_date"]) < _d(seller["registered_date"]):
+                errs.append(f"[cross] {tid}: buy_date {p['buy_date']} 가 판매자 registered_date {seller['registered_date']} 이전")
+            same_day = [b for b in seller["supply_history"] if b["supplied_date"] == p["buy_date"]]
+            if not same_day:
+                warns.append(f"[warn] {tid}: 판매자 {record['seller_id']} 의 공급 이력에 buy_date {p['buy_date']} 배치가 없음")
+            for b in same_day:
+                if record["product_id"] in (b.get("product_ids") or []) and b["acquisition_type"] != p["acquisition_type"]:
+                    errs.append(f"[cross] {tid}: 배치 {b['batch_id']} 는 {b['acquisition_type']} 인데 거래는 {p['acquisition_type']}")
 
     # 매입/위탁과 매입가
     if p["acquisition_type"] == "consignment" and p["buy_price_krw"] != 0:
@@ -195,6 +214,7 @@ def validate_records(
     leaves: dict[str, Leaf] | None = None,
     today: date | None = None,
     warnings: dict[int, list[str]] | None = None,
+    sellers: dict[str, dict] | None = None,
 ) -> dict[int, list[str]]:
     """{레코드 인덱스: 오류 목록}. 비어 있으면 전부 통과. warnings 딕셔너리를 넘기면 경고를 채워 준다."""
     schema = schema or load_schema()
@@ -205,7 +225,7 @@ def validate_records(
     for i, rec in enumerate(records):
         errs = schema_errors(rec, v)
         if not errs:
-            errs, warns = cross_checks(rec, products, leaves, today)
+            errs, warns = cross_checks(rec, products, leaves, today, sellers)
             if warns and warnings is not None:
                 warnings[i] = warns
         if errs:
@@ -215,6 +235,10 @@ def validate_records(
 
 def load_products(path: Path = PRODUCT_EXAMPLES_PATH) -> dict[str, dict]:
     return {r["product_id"]: r for r in read_jsonl(path)}
+
+
+def load_sellers(path: Path = SELLER_EXAMPLES_PATH) -> dict[str, dict]:
+    return {r["seller_id"]: r for r in read_jsonl(path)}
 
 
 def _stats(xs: list[float]) -> str:
@@ -252,6 +276,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--records", type=Path, default=EXAMPLES_PATH)
     ap.add_argument("--products", type=Path, default=PRODUCT_EXAMPLES_PATH,
                     help="상품 레코드 JSONL. 'none' 이면 상품 참조 규칙 생략")
+    ap.add_argument("--sellers", type=Path, default=SELLER_EXAMPLES_PATH,
+                    help="판매자 레코드 JSONL (D005). 'none' 이면 판매자 참조 규칙 생략")
     ap.add_argument("--today", type=lambda s: date.fromisoformat(s), default=None,
                     help="기준일(YYYY-MM-DD). 기본 오늘")
     args = ap.parse_args(argv)
@@ -262,13 +288,15 @@ def main(argv: list[str] | None = None) -> int:
 
     leaves = {l.code: l for l in load_categories()}
     products = None if str(args.products) == "none" else load_products(args.products)
+    sellers = None if str(args.sellers) == "none" else load_sellers(args.sellers)
     records = read_jsonl(args.records)
     today = args.today or date.today()
     warnings: dict[int, list[str]] = {}
-    errors = validate_records(records, schema, products, leaves, today, warnings)
+    errors = validate_records(records, schema, products, leaves, today, warnings, sellers)
     rel = args.records.relative_to(REPO_ROOT) if args.records.is_relative_to(REPO_ROOT) else args.records
     print(f"레코드 검증: {rel} — {len(records)}건 중 오류 {len(errors)}건, 경고 {len(warnings)}건 "
-          f"(기준일 {today}, 상품 참조 {'있음 ' + str(len(products)) + '건' if products is not None else '없음'})")
+          f"(기준일 {today}, 상품 참조 {'있음 ' + str(len(products)) + '건' if products is not None else '없음'}, "
+          f"판매자 참조 {'있음 ' + str(len(sellers)) + '건' if sellers is not None else '없음'})")
     for i, errs in errors.items():
         for e in errs:
             print(f"  #{i} {e}")

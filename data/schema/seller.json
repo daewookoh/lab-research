@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://techplan.example/lab-research/schema/seller.json",
+  "title": "Seller (판매자 이력) v0.1",
+  "description": "재고를 넘기는 소상공인(판매자) 1명·1사업체의 프로필과 공급 이력 레코드. 1레코드 = 1판매자. D005(2026-11-10). 거래 결과(transaction.json)의 seller_id 가 이 테이블을 외래키로 참조한다. 공급 이력(supply_history)은 '재고를 넘긴 배치' 단위 사건 목록이며, 배치 수·기재 정확도 비율 같은 집계값은 저장하지 않고 src/schema/seller.py 가 계산한다. 상태: draft (연구책임자 승인 전).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seller_id",
+    "business",
+    "registered_date",
+    "supply_history"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1",
+      "description": "이 레코드가 따르는 스키마 버전"
+    },
+    "seller_id": {
+      "type": "string",
+      "pattern": "^S[0-9]{6}$",
+      "description": "판매자 고유 ID. S + 6자리 숫자. transaction.seller_id 가 참조한다. 사업자등록번호·상호 등 식별 정보는 저장하지 않는다(가명화)."
+    },
+    "business": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "region", "main_category_codes", "years_in_business"],
+      "description": "사업체 속성. 연구용 피처만 두고 개인정보는 두지 않는다.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["offline_retail", "online_retail", "wholesale", "manufacturer", "food_service", "other"],
+          "description": "업태. offline_retail=오프라인 소매(매장), online_retail=온라인 소매(스마트스토어·자사몰 등), wholesale=도매·유통, manufacturer=제조·브랜드사, food_service=식당·카페(식자재·굿즈 재고), other=기타."
+        },
+        "region": {
+          "type": "string",
+          "enum": ["seoul", "gyeonggi_incheon", "chungcheong", "jeolla", "gyeongsang", "gangwon", "jeju", "unknown"],
+          "description": "사업장 소재 권역(시·도를 7권역으로 묶음). 물류효율성 항목(수거 거리)의 기초 피처."
+        },
+        "main_category_codes": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[A-Z]{2}-[A-Z]{2}$"},
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "description": "주로 취급하는 카테고리 중분류 코드(categories.yaml level2, 예: FD-PR). 존재 여부는 교차 검증."
+        },
+        "years_in_business": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "업력(년). 소수 1자리 허용. 0 = 1년 미만."
+        },
+        "annual_revenue_band": {
+          "type": ["string", "null"],
+          "enum": ["lt_1e8", "1e8_5e8", "5e8_30e8", "gt_30e8", null],
+          "description": "연매출 구간(원). lt_1e8=1억 미만, 1e8_5e8=1~5억, 5e8_30e8=5~30억(소상공인 상한 근처), gt_30e8=30억 초과. 모르면 null."
+        },
+        "sales_channels_used": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["open_market", "own_online", "offline_store", "secondhand_app", "b2b_wholesale", "live_commerce", "social_market"]
+          },
+          "uniqueItems": true,
+          "maxItems": 7,
+          "description": "판매자가 스스로 운영 중인 판매채널(transaction.channel 과 같은 7종). 재유통 시 '판매자가 이미 쓰는 채널은 피한다' 등 채널 적합성 규칙의 기초."
+        }
+      }
+    },
+    "registered_date": {
+      "type": "string",
+      "format": "date",
+      "description": "재유통 서비스에 판매자로 등록한 날. 모든 공급 배치는 이 날 이후여야 한다(교차 검증)."
+    },
+    "acquisition_source": {
+      "type": "string",
+      "enum": ["referral", "inbound", "outbound", "partner", "unknown"],
+      "default": "unknown",
+      "description": "판매자 유입 경로. referral=기존 판매자 소개, inbound=직접 문의, outbound=영업 발굴, partner=협력기관(소상공인 단체 등)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "dormant", "churned", "blocked"],
+      "default": "active",
+      "description": "판매자 상태. active=최근 1년 내 공급 있음, dormant=1년 이상 공급 없음, churned=거래 종료 통보, blocked=허위 기재·분쟁으로 거래 중단."
+    },
+    "supply_history": {
+      "type": "array",
+      "maxItems": 10000,
+      "description": "재고를 넘긴 배치(한 번에 인수한 묶음) 목록. 시간순 정렬·batch_id 유일(교차 검증). 빈 배열이면 등록만 하고 아직 공급이 없는 판매자.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["batch_id", "supplied_date", "acquisition_type", "product_count", "declared_value_krw", "description_accuracy", "issue"],
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "pattern": "^B[0-9]{8}$",
+            "description": "배치 고유 ID. B + 8자리 숫자. transaction.purchase 는 v0.1 에서 batch_id 를 참조하지 않는다(product_id+buy_date 로 연결, D004 메모 6절)."
+          },
+          "supplied_date": {
+            "type": "string",
+            "format": "date",
+            "description": "배치 인수일. registered_date 이후, 기준일 이하. transaction.purchase.buy_date 와 같은 날."
+          },
+          "acquisition_type": {
+            "type": "string",
+            "enum": ["purchase", "consignment"],
+            "description": "transaction.purchase.acquisition_type 과 동일. 배치 단위 매입/위탁 구분."
+          },
+          "product_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "배치에 포함된 품목(SKU, product_id) 수."
+          },
+          "product_ids": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^P[0-9]{8}$"},
+            "uniqueItems": true,
+            "description": "배치에 포함된 product_id 목록(선택). 있으면 길이가 product_count 와 같아야 하고 각 ID 가 상품 레코드에 있어야 한다(교차 검증)."
+          },
+          "declared_value_krw": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "판매자가 신고한 배치 총 정상가 합계(원). 위탁도 신고가는 있으므로 0 허용은 '미기재' 의미."
+          },
+          "settled_value_krw": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "판매자에게 실제 지급·정산한 금액 합계(원). 매입이면 매입가 합계, 위탁이면 판매 후 정산액(미정산이면 null)."
+          },
+          "description_accuracy": {
+            "type": "string",
+            "enum": ["accurate", "minor_gap", "major_gap", "unknown"],
+            "description": "판매자 기재(수량·상태·기한)와 실물 검수 결과의 일치도. accurate=일치, minor_gap=수량 ±10% 이내 또는 등급 1단계 차이, major_gap=그 이상(등급 2단계 이상·기한 경과품 포함·수량 10% 초과 부족). 판매자 신뢰도 피처의 원천."
+          },
+          "issue": {
+            "type": "string",
+            "enum": ["none", "quantity_short", "condition_mismatch", "expired_included", "late_handover", "dispute", "other"],
+            "description": "배치 처리 중 발생한 대표 이슈 1개. none=없음, quantity_short=수량 부족, condition_mismatch=상태 불일치, expired_included=기한 경과품 포함, late_handover=인계 지연, dispute=정산·반품 분쟁."
+          },
+          "notes": {
+            "type": ["string", "null"],
+            "maxLength": 300,
+            "description": "담당자 메모."
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "판매자 관련 담당자 메모 (자유 텍스트)."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "레코드 생성 시각(ISO 8601)"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "공급 이력 마지막 갱신 시각. 없으면 null."
+    }
+  }
+}

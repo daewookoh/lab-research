@@ -211,3 +211,46 @@ def test_loss_warning_direct(examples, products, leaves):
     rec = copy.deepcopy(examples[17])
     errs, warns = cross_checks(rec, products, leaves, TODAY)
     assert errs == [] and any("적자" in w for w in warns)
+
+
+# ---------- 판매자 참조 (D005 추가) ----------
+
+@pytest.fixture(scope="module")
+def sellers():
+    from src.schema.transaction import load_sellers
+    return load_sellers()
+
+
+def test_examples_pass_with_seller_reference(examples, schema, products, leaves, sellers):
+    """예시 18건 모두 판매자 레코드가 있고, buy_date 에 해당 배치가 있어 판매자 경고가 없어야 한다."""
+    warnings = {}
+    assert validate_records(examples, schema, products, leaves, TODAY, warnings, sellers) == {}
+    assert not any("공급 이력" in w for ws in warnings.values() for w in ws)
+
+
+def test_unknown_seller(sold, schema, products, leaves, sellers):
+    sold["seller_id"] = "S999999"
+    errs = validate_records([sold], schema, products, leaves, TODAY, None, sellers).get(0, [])
+    assert any("판매자 레코드에 없음" in e for e in errs)
+
+
+def test_buy_before_seller_registration(sold, schema, products, leaves, sellers):
+    sellers2 = copy.deepcopy(sellers)
+    sellers2["S000101"]["registered_date"] = "2026-09-02"  # buy_date 2026-09-01
+    errs = validate_records([sold], schema, products, leaves, TODAY, None, sellers2).get(0, [])
+    assert any("registered_date" in e for e in errs)
+
+
+def test_batch_acquisition_type_mismatch(sold, schema, products, leaves, sellers):
+    sellers2 = copy.deepcopy(sellers)
+    sellers2["S000101"]["supply_history"][1]["acquisition_type"] = "consignment"
+    errs = validate_records([sold], schema, products, leaves, TODAY, None, sellers2).get(0, [])
+    assert any("배치" in e and "consignment" in e for e in errs)
+
+
+def test_missing_batch_is_warning(sold, schema, products, leaves, sellers):
+    sellers2 = copy.deepcopy(sellers)
+    sellers2["S000101"]["supply_history"] = []
+    warnings = {}
+    assert validate_records([sold], schema, products, leaves, TODAY, warnings, sellers2) == {}
+    assert any("배치가 없음" in w for w in warnings.get(0, []))
