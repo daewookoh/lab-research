@@ -1,0 +1,31 @@
+Re-Flow Score v0 — 기준일 2026-11-12 / 입력: 상품 15 시세 29 거래 18 판매자 17 (data/schema/examples; 합성 데이터)
+product    cat        G  dem  vel  pri  res  chn  log  total gr conf      r D_ref channel          buy%     buy flags
+P00000001  FD-PR-SNK  S   79   75   95   73   90   77   80.9 A  0.83  0.969    30 open_market     0.424   13600 prior_velocity
+P00000002  FD-PR-BEV  A   70   85   91   59   70   71   74.8 B  0.83  0.946    30 open_market     0.399    8400 prior_velocity
+P00000003  FD-PR-RTE  C   80   99   15   46   70   56   60.6 B  0.83  0.498    14 secondhand_app  0.342    6600 approx_price,prior_velocity
+P00000004  FD-HF-SUP  S   72   80  100   96   85   89   87.0 A  0.83  1.586    30 b2b_wholesale   0.448   13000 prior_velocity,suspect_price
+P00000005  LV-CL-DET  A   78   81   66   83   80   45   74.2 B  0.83  0.799    45 offline_store   0.397    5900 prior_velocity
+P00000006  LV-KT-STO  S   51   58   72   92   90   59   69.5 B  0.83  0.829    60 open_market     0.378    9100 prior_velocity
+P00000007  BT-CO-SKN  S   65   66   67   95  100   89   77.6 A  0.83  0.800    45 b2b_wholesale   0.410   11500 prior_velocity
+P00000008  FA-AP-WOM  A   55   53   50   84   70  100   65.3 B  0.83  0.700    60 open_market     0.361   21300 prior_velocity
+P00000009  FA-AP-MEN  S   74   68   44   97   80   90   73.6 B  0.83  0.666    60 own_online      0.394   11800 prior_velocity
+P00000010  FA-AC-SHO  B   76   53    8   73   65   79   56.6 C  0.83  0.449    60 secondhand_app  0.326       0 prior_velocity GATE=seller_blocked manual
+P00000011  DE-HA-SEA  S   57   53   39   98   80   73   64.7 B  0.83  0.636    60 own_online      0.359    9000 prior_velocity
+P00000012  DE-DG-ACC  S   51   68   60   99  100   65   72.2 B  0.83  0.763    60 b2b_wholesale   0.389    2300 prior_velocity
+P00000013  HO-TX-BED  A   71   68   83   87   70   61   74.9 B  0.83  0.899    60 open_market     0.400   27600 prior_velocity
+P00000014  HB-KD-BAB  S   66   95   69   99  100   60   81.6 A  0.83  0.811    30 b2b_wholesale   0.426    6800 prior_velocity
+P00000015  HB-PL-PET  A   50   95   78   76   75   37   71.0 B  0.83  0.867    30 b2b_wholesale   0.384    1700 prior_velocity
+
+항목 demand   : min  50 median  70.0 max  80 (서로 다른 값 14개)
+항목 velocity : min  53 median  68.0 max  99 (서로 다른 값 10개)
+항목 price    : min   8 median  67.0 max 100 (서로 다른 값 15개)
+항목 residual : min  46 median  87.0 max  99 (서로 다른 값 13개)
+항목 channel  : min  65 median  80.0 max 100 (서로 다른 값 7개)
+항목 logistics: min  37 median  71.0 max 100 (서로 다른 값 14개)
+총점: min 56.6 median 73.6 max 87.0 / 등급 분포 A=4, B=10, C=1, D=0
+게이트: 1건, manual_review: 1건, confidence median 0.83
+플래그: {"prior_velocity": 15, "approx_price": 1, "suspect_price": 1}
+추천 채널: {"open_market": 5, "secondhand_app": 2, "b2b_wholesale": 5, "offline_store": 1, "own_online": 2}
+
+저장: research/2026-11-12/scores_v0_examples.jsonl (15건)
+182 passed in 0.33s

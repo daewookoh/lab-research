@@ -1,0 +1,18 @@
+== 2026-12-12
+P00000003  FD-PR-RTE  C   80   99   15   38   70   56   58.9 C  0.83  0.498    14 secondhand_app  0.336       0 approx_price,prior_velocity GATE=expired manual
+P00000010  FA-AC-SHO  B   76   53    8   73   65   79   56.5 C  0.83  0.449    60 secondhand_app  0.326       0 prior_velocity GATE=seller_blocked manual
+총점: min 56.5 median 73.5 max 88.6 / 등급 분포 A=5, B=8, C=2, D=0
+게이트: 2건, manual_review: 2건, confidence median 0.83
+== 2027-02-11
+P00000002  FD-PR-BEV  A   78   85   91   47   70   71   74.3 B  0.67  0.946    30 open_market     0.397       0 prior_velocity,stale_price GATE=expired manual
+P00000003  FD-PR-RTE  C   80   99   15   37   70   56   58.6 C  0.67  0.498    14 secondhand_app  0.335       0 approx_price,prior_velocity,stale_price GATE=expired manual
+P00000010  FA-AC-SHO  B   76   53    8   71   65   79   56.2 C  0.67  0.449    60 secondhand_app  0.325       0 prior_velocity,stale_price GATE=seller_blocked manual
+총점: min 56.2 median 73.2 max 87.4 / 등급 분포 A=4, B=9, C=2, D=0
+게이트: 3건, manual_review: 3건, confidence median 0.67
+== 2027-05-11
+P00000001  FD-PR-SNK  S   67   75   95   53   90   77   74.6 B  0.67  0.969    30 open_market     0.398       0 prior_velocity,stale_price GATE=expired manual
+P00000002  FD-PR-BEV  A   70   85   91   45   70   71   72.1 B  0.67  0.946    30 open_market     0.388       0 prior_velocity,stale_price GATE=expired manual
+P00000003  FD-PR-RTE  C   80   99   15   34   70   56   58.2 C  0.67  0.498    14 secondhand_app  0.333       0 approx_price,prior_velocity,stale_price GATE=expired manual
+P00000010  FA-AC-SHO  B   67   53    8   69   65   79   53.9 C  0.67  0.449    60 secondhand_app  0.316       0 prior_velocity,stale_price GATE=seller_blocked manual
+총점: min 53.9 median 72.1 max 80.8 / 등급 분포 A=2, B=11, C=2, D=0
+게이트: 4건, manual_review: 4건, confidence median 0.67
