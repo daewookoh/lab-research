@@ -1,0 +1,48 @@
+# D008 분포 가정 점검 — params_v1.yaml, 소분류당 n=2000, seed=20261113
+
+## 1. 기본 판매기간 중앙값(가정 표) vs score_v0 사전값 — expiry_class 묶음
+  short  n= 1 표 중앙값= 14.0  사전값= 14  범위=14~14  차이=+0.0
+  medium n= 5 표 중앙값= 28.0  사전값= 30  범위=25~35  차이=-2.0
+  long   n= 6 표 중앙값= 42.5  사전값= 45  범위=30~60  차이=-2.5
+  none   n=18 표 중앙값= 60.0  사전값= 60  범위=35~75  차이=+0.0
+
+## 2. v1 승수(grade·price·channel) 적용 후 잠재 T 중앙값 — expiry_class 묶음 / 등급 / 채널
+  short  base 중앙값= 14.2  T 중앙값= 12.9  T p10/p90=4/37
+  medium base 중앙값= 27.8  T 중앙값= 26.1  T p10/p90=7/86
+  long   base 중앙값= 42.3  T 중앙값= 40.8  T p10/p90=11/138
+  none   base 중앙값= 56.4  T 중앙값= 56.1  T p10/p90=13/223
+  grade S: T 중앙값= 45.3 (n=25605)
+  grade A: T 중앙값= 45.3 (n=17633)
+  grade B: T 중앙값= 45.1 (n=10612)
+  grade C: T 중앙값= 32.8 (n=6150)
+  open_market    : T 중앙값= 51.6 (n=21423)
+  b2b_wholesale  : T 중앙값= 15.4 (n=9083)
+  own_online     : T 중앙값= 67.2 (n=7356)
+  offline_store  : T 중앙값= 61.8 (n=7463)
+  secondhand_app : T 중앙값= 47.2 (n=6796)
+  live_commerce  : T 중앙값= 26.5 (n=3371)
+  social_market  : T 중앙값= 41.8 (n=4508)
+
+## 3. 관측 결과 상태 비율(기준일 window 1~400일) — 전체 / expiry_class / 등급
+  전체   {'sold': 0.646, 'withdrawn': 0.198, 'partially_sold': 0.107, 'listed': 0.027, 'disposed': 0.022}  중도절단율=0.354
+  short  {'sold': 0.836, 'disposed': 0.069, 'withdrawn': 0.064, 'partially_sold': 0.028, 'listed': 0.004}  절단율=0.165
+  medium {'sold': 0.724, 'withdrawn': 0.121, 'disposed': 0.073, 'partially_sold': 0.068, 'listed': 0.014}  절단율=0.276
+  long   {'sold': 0.668, 'withdrawn': 0.176, 'partially_sold': 0.096, 'disposed': 0.037, 'listed': 0.023}  절단율=0.332
+  none   {'sold': 0.607, 'withdrawn': 0.234, 'partially_sold': 0.126, 'listed': 0.032, 'disposed': 0.001}  절단율=0.393
+  grade S {'sold': 0.659, 'withdrawn': 0.201, 'partially_sold': 0.111, 'listed': 0.027, 'disposed': 0.002}
+  grade A {'sold': 0.654, 'withdrawn': 0.207, 'partially_sold': 0.109, 'listed': 0.029, 'disposed': 0.002}
+  grade B {'sold': 0.652, 'withdrawn': 0.206, 'partially_sold': 0.113, 'listed': 0.026, 'disposed': 0.003}
+  grade C {'sold': 0.562, 'disposed': 0.199, 'withdrawn': 0.144, 'partially_sold': 0.073, 'listed': 0.022}
+  sold 만의 duration 중앙값=29.8  전체 duration(절단 포함) 중앙값=30.5  잠재 T 중앙값=43.9
+  → sold 만 쓰면 짧은 쪽으로, 경과일을 그대로 쓰면 긴 쪽으로 편향(D004 고찰 재현)
+  등급 분포 {'S': 0.427, 'A': 0.294, 'B': 0.177, 'C': 0.102}
+  소분류별 sold 건수 최소=1036 (n=2000/소분류 기준; 1,000건 v1 은 소분류당 ≈33건 → sold ≈21건, score_v0 VELOCITY_MIN_SOLD=5 충족 여부 확인용)
+
+## 4. 철회 평균(withdraw_mean_days) 민감도
+  mean=  120: {'sold': 0.544, 'withdrawn': 0.329, 'partially_sold': 0.081, 'listed': 0.027, 'disposed': 0.019} 절단율=0.456
+  mean=  240: {'sold': 0.644, 'withdrawn': 0.197, 'partially_sold': 0.111, 'listed': 0.026, 'disposed': 0.021} 절단율=0.356
+  mean=  480: {'sold': 0.704, 'partially_sold': 0.131, 'withdrawn': 0.111, 'listed': 0.03, 'disposed': 0.023} 절단율=0.296
+  mean=    ∞: {'sold': 0.789, 'partially_sold': 0.157, 'listed': 0.027, 'disposed': 0.027} 절단율=0.211
+
+## 5. v2 승수(brand·season 추가) 적용 시 — 참고
+  T 중앙값=46.1  {'sold': 0.631, 'withdrawn': 0.203, 'partially_sold': 0.11, 'listed': 0.031, 'disposed': 0.024}

@@ -1,0 +1,170 @@
+# 합성 데이터 생성기 파라미터 v1 — D008 (2026-11-13) 설계, D009 가 읽어 생성
+# 설명·근거: research/2026-11-13/synth_design.md
+# 전부 **가정**(운영 근거 없음). 실데이터가 오면 (1) 소분류 중앙값, (2) 결과 상태 비율, (3) 시세 비율부터 교체.
+# 판매기간 단위: 일. 금액: 원. 분포 표기: lognormal(median, sigma) 는 log 척도 sigma.
+
+version: "1"
+defined_on: "2026-11-13"
+seed: 20261113
+reference_date: "2026-11-13"      # 관측 기준일(observed_at 상한). listed_date 는 이 날 기준 과거 window 안에서 뽑는다.
+listing_window_days: [1, 270]     # listed_date = reference_date − U(1, 270)  (1차 점검 400 → sold 65% 로 과다, 270 으로 축소)
+
+# ---------------------------------------------------------------------------
+# 1. 소분류별 판매기간(전량 판매까지 걸리는 잠재 기간 T) 기본 분포 — lognormal(median_days, sigma)
+#    median 은 "기준 조건"(S등급·mid 브랜드·시즌 중립·open_market·등록가/시세 0.8) 에서의 값.
+#    expiry_class 묶음 중앙값이 score_v0 의 VELOCITY_PRIOR_DAYS(short 14·medium 30·long 45·none 60) 와 맞도록 잡았다.
+#    list_price_median: 정상가(list_price_krw) lognormal 중앙값(sigma 는 공통 0.5).
+#    unit_count_choices: 1단위 낱개 수 후보(가중치는 공통 unit_count_weights).
+# ---------------------------------------------------------------------------
+leaves:
+  FD-PR-SNK: {median_days: 25, sigma: 0.70, list_price_median: 15000, unit_count_choices: [1, 10, 20]}
+  FD-PR-BEV: {median_days: 28, sigma: 0.70, list_price_median: 20000, unit_count_choices: [1, 24, 30]}
+  FD-PR-RTE: {median_days: 14, sigma: 0.60, list_price_median: 18000, unit_count_choices: [1, 6, 12, 24]}
+  FD-HF-SUP: {median_days: 35, sigma: 0.75, list_price_median: 35000, unit_count_choices: [1, 3]}
+  LV-CL-DET: {median_days: 40, sigma: 0.70, list_price_median: 25000, unit_count_choices: [1, 4, 6]}
+  LV-CL-HYG: {median_days: 30, sigma: 0.70, list_price_median: 15000, unit_count_choices: [1, 10, 30, 50]}
+  LV-KT-COK: {median_days: 60, sigma: 0.85, list_price_median: 45000, unit_count_choices: [1, 4]}
+  LV-KT-STO: {median_days: 55, sigma: 0.85, list_price_median: 30000, unit_count_choices: [1, 5, 20]}
+  BT-CO-SKN: {median_days: 45, sigma: 0.75, list_price_median: 30000, unit_count_choices: [1, 10]}
+  BT-CO-MKP: {median_days: 60, sigma: 0.85, list_price_median: 20000, unit_count_choices: [1]}
+  BT-CO-HBD: {median_days: 40, sigma: 0.70, list_price_median: 15000, unit_count_choices: [1, 3]}
+  BT-HC-MED: {median_days: 50, sigma: 0.75, list_price_median: 25000, unit_count_choices: [1, 10]}
+  FA-AP-WOM: {median_days: 75, sigma: 0.90, list_price_median: 45000, unit_count_choices: [1]}
+  FA-AP-MEN: {median_days: 70, sigma: 0.90, list_price_median: 40000, unit_count_choices: [1]}
+  FA-AP-KID: {median_days: 60, sigma: 0.85, list_price_median: 25000, unit_count_choices: [1, 2]}
+  FA-AC-SHO: {median_days: 70, sigma: 0.90, list_price_median: 50000, unit_count_choices: [1]}
+  FA-AC-BAG: {median_days: 65, sigma: 0.85, list_price_median: 40000, unit_count_choices: [1]}
+  FA-AC-ETC: {median_days: 50, sigma: 0.80, list_price_median: 15000, unit_count_choices: [1, 5, 10]}
+  DE-HA-SML: {median_days: 45, sigma: 0.80, list_price_median: 60000, unit_count_choices: [1]}
+  DE-HA-SEA: {median_days: 60, sigma: 0.90, list_price_median: 70000, unit_count_choices: [1]}
+  DE-DG-ACC: {median_days: 35, sigma: 0.75, list_price_median: 15000, unit_count_choices: [1, 5, 10]}
+  DE-DG-AUD: {median_days: 40, sigma: 0.80, list_price_median: 50000, unit_count_choices: [1]}
+  HO-TX-BED: {median_days: 65, sigma: 0.85, list_price_median: 60000, unit_count_choices: [1]}
+  HO-TX-DEC: {median_days: 70, sigma: 0.90, list_price_median: 30000, unit_count_choices: [1, 2]}
+  HO-OF-STA: {median_days: 50, sigma: 0.80, list_price_median: 10000, unit_count_choices: [1, 12, 50]}
+  HO-OF-DIY: {median_days: 55, sigma: 0.85, list_price_median: 35000, unit_count_choices: [1, 5]}
+  HB-KD-BAB: {median_days: 25, sigma: 0.70, list_price_median: 35000, unit_count_choices: [1, 4, 8]}
+  HB-KD-TOY: {median_days: 55, sigma: 0.85, list_price_median: 30000, unit_count_choices: [1]}
+  HB-PL-PET: {median_days: 28, sigma: 0.70, list_price_median: 30000, unit_count_choices: [1, 2, 6]}
+  HB-PL-OUT: {median_days: 70, sigma: 0.90, list_price_median: 50000, unit_count_choices: [1]}
+
+list_price_sigma: 0.5
+unit_count_weights: [0.70, 0.30]   # [첫 후보(단품) 확률, 나머지 후보 균등 분배 확률]
+
+# ---------------------------------------------------------------------------
+# 2. 판매기간 승수(multiplier) — T = base × Π(승수) × lognormal(1, sigma) 로 뽑는다.
+#    v1 에서는 grade·price·channel 만 켜고 season·brand 는 1.0 으로 끈다(D011 v2 에서 켬).
+# ---------------------------------------------------------------------------
+multipliers:
+  enabled_v1: [grade, price, channel]
+  enabled_v2: [grade, price, channel, season, brand]
+  grade: {S: 1.00, A: 1.10, B: 1.40, C: 2.00}
+  brand: {major: 0.80, mid: 1.00, minor: 1.20, unbranded: 1.40, unknown: 1.30}
+  season: {in_season: 0.70, near_season: 0.90, neutral: 1.00, off_season: 1.50}   # 등록월 기준, score_v0 SEASON_MONTHS 판정 재사용
+  channel: {open_market: 1.00, own_online: 1.30, offline_store: 1.20, secondhand_app: 0.90, b2b_wholesale: 0.30, live_commerce: 0.50, social_market: 0.80}
+  # 가격: 등록가/시세 비율 p 에 대해 (p / 0.8) ** price_elasticity, p ∈ [0.3, 1.2] 로 클립
+  price_elasticity: 1.0   # 1차 점검 1.5 → C 등급 할인(0.60)이 등급 승수를 상쇄해 C 가 S 보다 빨라짐, 1.0 으로 완화
+  price_ref_ratio: 0.8
+
+# ---------------------------------------------------------------------------
+# 3. 경쟁 사건(관측 결과 결정) — listed_date 부터 센 일수
+#    sold         : T ≤ elapsed 이고 T 가 철회·폐기보다 먼저
+#    withdrawn    : 철회 시각 W ~ exponential(mean_days) 가 먼저 (채널 이전·반품 등). 중도절단.
+#    disposed     : 유통기한 있는 품목은 expiry − dispose_before_expiry_days 에서, 없는 품목은 max_listing_days 에서 폐기·기부 종료. 중도절단.
+#    listed / partially_sold : 위 셋 모두 elapsed 보다 뒤 → 관측일에 판매 중. 중도절단. 일부 판매 수량은 진행률 함수로.
+# ---------------------------------------------------------------------------
+competing:
+  withdraw_mean_days: 180   # 1차 점검 240 → withdrawn 20%, 180 으로 낮춰 철회·폐기 비중 확대
+  withdraw_channel_factor: {open_market: 1.0, own_online: 1.0, offline_store: 1.5, secondhand_app: 0.7, b2b_wholesale: 2.0, live_commerce: 0.4, social_market: 0.6}
+  dispose_before_expiry_days: 14
+  max_listing_days: 240   # 유통기한 없는 품목도 8개월 넘게 안 팔리면 폐기·기부 종료 (1차 365 → disposed 0.1%)
+  partial_progress_exponent: 1.5   # quantity_sold ≈ qty × (elapsed / T) ** exp × U(0.6, 1.1), 1 미만이면 0
+  partial_noise: [0.6, 1.1]
+
+# ---------------------------------------------------------------------------
+# 4. 상품 속성 분포
+# ---------------------------------------------------------------------------
+product:
+  # 상태등급 — expiry_class 별 (short/medium 은 기한 임박 C 가 많다는 가정)
+  grade_by_expiry:
+    none:   {S: 0.45, A: 0.30, B: 0.17, C: 0.08}
+    long:   {S: 0.45, A: 0.30, B: 0.17, C: 0.08}
+    medium: {S: 0.35, A: 0.28, B: 0.20, C: 0.17}
+    short:  {S: 0.30, A: 0.25, B: 0.20, C: 0.25}
+  # 포장상태 — 등급 조건부
+  packaging_by_grade:
+    S: {sealed: 0.90, box_opened: 0.10}
+    A: {sealed: 0.20, box_opened: 0.60, repackaged: 0.10, box_damaged: 0.10}
+    B: {box_opened: 0.30, box_damaged: 0.40, no_box: 0.20, repackaged: 0.10}
+    C: {box_damaged: 0.40, no_box: 0.40, repackaged: 0.20}
+  # 브랜드 등급 — 대분류별 프로필
+  brand_profile_by_l1: {FD: brand_heavy, LV: mixed, BT: brand_heavy, FA: unbranded_heavy, DE: mixed, HO: unbranded_heavy, HB: mixed}
+  brand_profiles:
+    brand_heavy:     {major: 0.35, mid: 0.35, minor: 0.15, unbranded: 0.10, unknown: 0.05}
+    mixed:           {major: 0.20, mid: 0.35, minor: 0.25, unbranded: 0.15, unknown: 0.05}
+    unbranded_heavy: {major: 0.08, mid: 0.27, minor: 0.30, unbranded: 0.30, unknown: 0.05}
+  list_price_basis: {msrp: 0.45, seller_last_price: 0.30, market_estimate: 0.15, unknown: 0.10}
+  # 보유 수량 — size_class 별 lognormal(median, sigma), 최소 1
+  quantity_by_size: {small: [40, 0.9], medium: [20, 0.9], large: [8, 0.8]}
+  # 입고 후 매입까지 보유기간(일, buy_date − acquired_date) lognormal(median, sigma), 최소 30
+  holding_days: [150, 0.6]
+  holding_min_days: 30
+  # 매입일 기준 잔여 유통기한(일) — expiry_class 별 U(lo, hi). C 등급이면 U(10, 90) 으로 덮어씀(D003 "기한 임박 → C" 규칙).
+  remaining_expiry_by_class: {short: [45, 150], medium: [90, 450], long: [365, 900]}
+  remaining_expiry_grade_c: [10, 90]
+  manufacture_date_known_prob: 0.6
+  source_text_prob: 0.5
+
+# ---------------------------------------------------------------------------
+# 5. 시세(market_price) 분포 — 상품당 0~3건
+# ---------------------------------------------------------------------------
+market_price:
+  n_obs_probs: {0: 0.10, 1: 0.45, 2: 0.30, 3: 0.15}
+  # 시세 중앙값 / 정상가 비율 r — 브랜드 등급별 lognormal(median, sigma), [0.2, 1.6] 클립 (1.2 초과는 score_v0 suspect_price 유발용)
+  ratio_by_brand: {major: [0.85, 0.20], mid: [0.75, 0.25], minor: [0.65, 0.30], unbranded: [0.55, 0.35], unknown: [0.65, 0.35]}
+  match_type: {exact: 0.65, same_model_other_pack: 0.15, similar: 0.20}
+  condition_used_prob_by_grade: {S: 0.05, A: 0.15, B: 0.50, C: 0.60}
+  used_to_new_factor: 0.55            # score_v0 USED_TO_NEW_FACTOR 와 동일
+  observed_days_before_ref: [0, 90]   # 관측일 = reference_date − U(0, 90) → 약 1/3 이 stale(60일 초과)
+  n_listings: {median: 12, sigma: 1.0, max: 300}
+  sold_count_30d_known_prob: 0.5
+  search_index_known_prob: 0.6
+  source_channel: {open_market: 0.5, price_comparison: 0.3, secondhand_app: 0.15, own_online: 0.05}
+
+# ---------------------------------------------------------------------------
+# 6. 판매자(seller) 분포 — v1 120명
+# ---------------------------------------------------------------------------
+seller:
+  count_v1: 120
+  count_v2: 800
+  region: {seoul: 0.30, gyeonggi_incheon: 0.30, chungcheong: 0.10, gyeongsang: 0.15, jeolla: 0.08, gangwon: 0.04, jeju: 0.03}
+  status: {active: 0.80, dormant: 0.12, churned: 0.05, blocked: 0.03}
+  business_type: {offline_retail: 0.45, online_retail: 0.30, wholesale: 0.10, manufacturer: 0.08, food_service: 0.05, other: 0.02}
+  years_in_business: [6, 0.7]          # lognormal(median, sigma)
+  n_channels_used: {0: 0.15, 1: 0.45, 2: 0.30, 3: 0.10}
+  main_categories_per_seller: [1, 3]   # U(1, 3) 개 대분류, 상품은 그 대분류에서 뽑음
+
+# ---------------------------------------------------------------------------
+# 7. 거래(transaction) 생성 규칙
+# ---------------------------------------------------------------------------
+transaction:
+  consignment_prob: 0.10
+  buy_price_basis: {reflow_score: 0.40, manual: 0.35, negotiated: 0.20, unknown: 0.05}
+  purchase_qty_ratio: [0.5, 1.0]       # purchase.quantity = quantity_on_hand × U(lo, hi), 최소 1
+  n_listings_per_purchase: {1: 0.80, 2: 0.20}
+  # 채널 선택 — 인기 가중치만 사용(score_v0 추천 채널은 쓰지 않는다: D012 베이스라인이 순환 참조가 되지 않도록)
+  channel_popularity: {open_market: 0.35, b2b_wholesale: 0.15, own_online: 0.12, offline_store: 0.12, secondhand_app: 0.12, live_commerce: 0.06, social_market: 0.08}
+  permit_excluded_channels: [secondhand_app, social_market, live_commerce]   # regulation=permit 품목은 제외(v0 가정과 동일)
+  # 등록가 = 정상가 × U(lo, hi) × 등급 계수
+  listed_ratio: [0.45, 0.85]
+  listed_grade_factor: {S: 1.00, A: 0.95, B: 0.80, C: 0.60}
+  # 매입가 = 등록가 × U(lo, hi)  (위탁이면 0)
+  buy_ratio_of_listed: [0.35, 0.60]
+  # 판매가 = 등록가 × U(lo, hi)  (할인·쿠폰)
+  sold_ratio_of_listed: [0.85, 1.00]
+  listed_after_buy_days: [1, 14]
+  channel_fee_rate: {open_market: 0.12, own_online: 0.03, offline_store: 0.0, secondhand_app: 0.05, b2b_wholesale: 0.0, live_commerce: 0.20, social_market: 0.10}
+  shipping_cost_per_unit_by_size: {small: 3000, medium: 4500, large: 7000}   # score_v0 SHIP_COST_KRW
+  units_per_shipment_by_size: {small: 3, medium: 2, large: 1}
+  no_shipping_channels: [offline_store]
+  b2b_single_shipment: true
