@@ -1,0 +1,67 @@
+# D009 검증기 4종 실행 로그 (2026-11-16, 기준일 2026-11-13) — python -m src.schema.* --today 2026-11-13
+
+$ python -m src.schema.product --records data/synth/v1/product.jsonl --today 2026-11-13
+스키마 점검 통과: product.json (draft 2020-12, 최상위 필드 18개, 필수 10개)
+레코드 검증: data/synth/v1/product.jsonl — 1000건 중 오류 0건, 경고 0건 (기준일 2026-11-13)
+레코드 1000건
+condition_grade: A=317, B=197, C=93, S=393
+packaging_state: box_damaged=166, box_opened=262, no_box=79, repackaged=68, sealed=425
+brand.tier: major=180, mid=348, minor=225, unbranded=200, unknown=47
+대분류: BT=154, DE=86, FA=188, FD=126, HB=109, HO=192, LV=145
+list_price_krw: min=4,600 / median=30,500 / max=279,100
+expiry_date 있음: 415 / 카테고리 expiry_class≠none: 415
+null 허용 필드 채움률: manufacture_date=607/1000, expiry_date=415/1000, source_text=533/1000, spec.weight_g=0/1000, spec.dimensions_cm=0/1000, spec.net_content=0/1000, spec.variant=355/1000, brand.name=753/1000
+(exit code 0; 개별 경고 행 0개 생략)
+
+$ python -m src.schema.seller --records data/synth/v1/seller.jsonl --products data/synth/v1/product.jsonl --today 2026-11-13
+스키마 점검 통과: seller.json (draft 2020-12, 최상위 필드 10개, 필수 4개, supply_history 항목 필드 10개)
+레코드 검증: data/synth/v1/seller.jsonl — 120건 중 오류 0건, 경고 7건 (기준일 2026-11-13, 상품 참조 있음 1000건)
+레코드 120건
+business.type: food_service=3, manufacturer=9, offline_retail=50, online_retail=48, wholesale=10
+business.region: chungcheong=12, gangwon=2, gyeonggi_incheon=37, gyeongsang=23, jeju=3, jeolla=7, seoul=36
+status: active=92, blocked=5, churned=7, dormant=16
+acquisition_source: inbound=38, outbound=36, partner=15, referral=25, unknown=6
+배치 수: 합 554 / 판매자당 min=0 median=3 max=20 / 이력 없음 3명
+description_accuracy(배치): accurate=317, major_gap=62, minor_gap=141, unknown=34
+issue(배치): condition_mismatch=54, dispute=15, expired_included=12, late_handover=44, none=350, other=37, quantity_short=42
+years_in_business: min=1.1 median=6.2 max=22
+판매자별 신고가 합(원): min=265,600 median=7,840,300 max=81,414,100
+main_category_codes: BT-CO=14, BT-HC=19, DE-DG=12, DE-HA=13, FA-AC=14, FA-AP=16, FD-HF=20, FD-PR=16, HB-KD=13, HB-PL=14, HO-OF=19, HO-TX=24, LV-CL=24, LV-KT=17
+(exit code 0; 개별 경고 행 7개 생략)
+
+$ python -m src.schema.market_price --records data/synth/v1/market_price.jsonl --products data/synth/v1/product.jsonl --today 2026-11-13
+스키마 점검 통과: market_price.json (draft 2020-12, 최상위 필드 17개, 필수 12개)
+레코드 검증: data/synth/v1/market_price.jsonl — 1492건 중 오류 0건, 경고 225건 (기준일 2026-11-13, 상품 참조 있음 1000건)
+레코드 1492건
+source.channel: open_market=721, own_online=91, price_comparison=454, secondhand_app=226
+source.collected_by: synthetic=1492
+match_type: exact=993, same_model_other_pack=225, similar=274
+condition: new=1070, used=422
+n_listings: n=1492 min=1 median=12 max=282 / 시세 없음(n=0) 0건
+참조 상품 수: 899 / 관측일: 2026-08-15 ~ 2026-11-13
+정상가 대비 환산 중앙값 비율(전체): n=1492 min=0.1179 median=0.61575 max=1.7437
+정상가 대비 비율(new): n=1070 min=0.1962 median=0.7209 max=1.7437
+정상가 대비 비율(used): n=422 min=0.1179 median=0.3846 max=0.9116
+같은 상품·상태의 채널 간 시세 격차(max/min): n=358 min=1 median=1.09 max=1.49
+null 허용 필드 채움률: sold_count_30d=709/1492, search_index=892/1492, source.platform=1492/1492
+(exit code 0; 개별 경고 행 229개 생략)
+
+$ python -m src.schema.transaction --records data/synth/v1/transaction.jsonl --products data/synth/v1/product.jsonl --sellers data/synth/v1/seller.jsonl --today 2026-11-13
+스키마 점검 통과: transaction.json (draft 2020-12, 최상위 필드 13개, 필수 9개)
+레코드 검증: data/synth/v1/transaction.jsonl — 1199건 중 오류 0건, 경고 16건 (기준일 2026-11-13, 상품 참조 있음 1000건, 판매자 참조 있음 120건)
+레코드 1199건
+status: disposed=3, listed=80, partially_sold=131, sold=718, withdrawn=267
+channel: b2b_wholesale=195, live_commerce=64, offline_store=157, open_market=440, own_online=138, secondhand_app=126, social_market=79
+acquisition_type: consignment=125, purchase=1074
+buy_price_basis: manual=442, negotiated=235, reflow_score=463, unknown=59
+censored: 478/1199
+duration_days(sold): n=718 min=2 median=30 max=227
+duration_days(censored): n=478 min=1 median=28 max=230
+recovery_rate(sold): n=648 min=-1 median=1.59465 max=2.7786
+recovery_rate(전체, null 제외): n=1074 min=-1 median=1.17925 max=2.7786
+매입가/등록가 비율: n=1074 min=0.344 median=0.477 max=0.6
+참조 상품 수: 1000 (복수 채널 등록 상품: 199)
+(exit code 0; 개별 경고 행 16개 생략)
+
+$ python -m pytest -q
+189 passed in 0.92s

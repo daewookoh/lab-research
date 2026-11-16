@@ -1,0 +1,30 @@
+# D009 합성 v1 점검 — 기준일 2026-11-13, seed 20261113, expiry_anchor=reference, n={'seller': 120, 'product': 1000, 'market_price': 1492, 'transaction': 1199}
+
+## 1. 검증기 4종 (python -m src.schema.* --today 기준일 과 동일 함수)
+  product      : 1000건 오류 0 경고 0
+  seller       : 120건 오류 0 경고 7 {'등록': 3, 'major_gap 비율': 4}
+  market_price : 1492건 오류 0 경고 225 {'표본<3': 86, '비율': 123, 'used@신품채널': 20}
+  transaction  : 1199건 오류 0 경고 16 {'적자': 16}
+
+## 2. 상태 비율 vs D008 설계 점검 (±5%p 규칙)
+  sold            v1 0.599  설계 0.569  차이 +0.030
+  withdrawn       v1 0.223  설계 0.230  차이 -0.007
+  partially_sold  v1 0.109  설계 0.139  차이 -0.030
+  listed          v1 0.067  설계 0.038  차이 +0.029
+  disposed        v1 0.003  설계 0.024  차이 -0.021
+  censored(D004 정의: disposed 제외) 0.399 / 설계 점검 정의(disposed 포함) 0.401 vs 설계 0.431
+  판매 중(listed+partially_sold) 합: v1 0.176 vs 설계 0.177
+  5%p 초과 항목: 없음
+
+## 3. listed vs partially_sold — 등록수량 효과
+  판매 중 211건의 등록수량: median=12, 수량 1 인 건 10건(필연적으로 listed), ≤3 31건
+  같은 잠재값에 수량 20 가정 적용 시: listed 0.043, partially_sold 0.133 (설계 0.038 / 0.139) → 차이는 수량 분포 때문이지 경쟁 사건 로직 차이가 아님
+
+## 4. 잔여 유통기한 기준점 변형: expiry_anchor=buy (설계 §5 원안, 메모리 생성만)
+  상품 1000건 중 기준일에 기한 경과 66건, S·A 인데 임박(≤90일) 21건 → 상품 검증기 오류 87건
+  상태 비율: sold 0.572, withdrawn 0.226, partially_sold 0.104, listed 0.067, disposed 0.030  (disposed 가 설계 점검 수준으로 복원됨)
+  → 설계 원안은 '이미 폐기·기한 경과한 과거 상품' 을 포함하므로 D003 의 입력 시점 규칙과 충돌. v1 은 reference 기준 채택(노트 6번 질문).
+
+## 5. 재현성
+  같은 seed 2회 동일: True / 저장된 v1 과 동일: True / seed+1 은 다름: True
+  meta: product_to_seller 1000, transaction_latent 1199, params_sha256 9b3194dc664d…

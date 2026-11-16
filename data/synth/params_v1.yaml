@@ -168,3 +168,43 @@ transaction:
   units_per_shipment_by_size: {small: 3, medium: 2, large: 1}
   no_shipping_channels: [offline_store]
   b2b_single_shipment: true
+
+# ---------------------------------------------------------------------------
+# 8. D009(2026-11-16) 추가 — 설계 문서에 분포가 명시되지 않았으나 검증기 통과에 필요한 항목. 전부 가정.
+#    (a) 잔여 유통기한 기준점: 설계 §5 는 "매입일 기준" 이지만 D003 검증기는 기준일(reference_date) 에
+#        expiry_date ≤ 기준일인 상품을 입력 거부하므로, v1 은 기준일 기준으로 잔여기한을 뽑는다(expiry_anchor=reference).
+#        매입일 기준(buy) 으로 바꾸면 기한 경과 상품이 생겨 상품 검증기가 실패한다 — 비교 수치는 research/2026-11-16/ 참조.
+#    (b) S·A 등급은 기준일에 잔여기한 > 90일이어야 하므로(D003 "임박 → C" 규칙) 하한을 91일로 올린다.
+# ---------------------------------------------------------------------------
+d009:
+  expiry_anchor: reference            # reference | buy
+  near_expiry_days: 91                # S·A 등급 잔여기한 하한(기준일 기준). D003 NEAR_EXPIRY_DAYS(90)+1
+  manufacture_before_acquired_days: [10, 240]   # manufacture_date = acquired_date − U(lo, hi) (알려진 경우만)
+  # 판매자 공급 이력(배치)
+  batch_products: {1: 0.45, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.05}     # 배치 1건에 묶이는 품목 수
+  description_accuracy: {accurate: 0.60, minor_gap: 0.25, major_gap: 0.10, unknown: 0.05}
+  issue_by_accuracy:
+    accurate:  {none: 0.85, late_handover: 0.10, other: 0.05}
+    minor_gap: {none: 0.50, quantity_short: 0.20, condition_mismatch: 0.20, late_handover: 0.05, other: 0.05}
+    major_gap: {condition_mismatch: 0.35, quantity_short: 0.25, expired_included: 0.20, dispute: 0.15, other: 0.05}
+    unknown:   {none: 0.80, other: 0.20}
+  registered_before_first_batch_days: [0, 400]
+  inactive_batch_age_days: {dormant: [366, 900], churned: [60, 700]}   # dormant·churned 는 v1 상품을 공급하지 않고 과거 배치만 가짐
+  inactive_batches: [1, 3]
+  annual_revenue_band: {lt_1e8: 0.30, 1e8_5e8: 0.40, 5e8_30e8: 0.20, gt_30e8: 0.03, null: 0.07}
+  acquisition_source: {referral: 0.25, inbound: 0.30, outbound: 0.25, partner: 0.15, unknown: 0.05}
+  # 시세 레코드 세부
+  platform_by_channel:
+    open_market: [naver_shopping, coupang, gmarket]
+    price_comparison: [danawa, enuri]
+    secondhand_app: [bunjang, joonggonara]
+    own_online: [brand_mall]
+  price_spread: {min: [0.75, 0.95], max: [1.05, 1.40]}   # min = median×U, max = median×U
+  shipping_included_prob: 0.6
+  sold_count_30d_lognormal: [8, 1.2]
+  # 상품명·원문 템플릿(과제2 추출 시드). 브랜드명은 가명 "브랜드A1" 식.
+  variant_pool:
+    FA: [블랙/M, 블랙/L, 화이트/S, 네이비/FREE, 베이지/L, 그레이/XL]
+    BT: [라벤더향, 무향, 시트러스향, 21호, 23호]
+    FD: [오리지널, 매운맛, 저당, 대용량]
+    LV: [화이트, 그레이, 3종세트]
