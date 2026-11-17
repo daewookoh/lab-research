@@ -1,0 +1,187 @@
+# D010 합성 데이터 v1 EDA — 2026-11-17 (전부 합성 데이터, seed 20261113)
+거래 1199 행 / 상품 1000 / 판매자 94 / 열 48
+상태: {'sold': 718, 'withdrawn': 267, 'partially_sold': 131, 'listed': 80, 'disposed': 3}  censored=0.399
+결측: expiry_date 0.584, sold_price(미판매) 0.149, recovery_rate(위탁) 0.104
+
+## 1. 분포
+duration_days(sold, n=718): p5=7.00 p25=17.00 p50=30.00 p75=53.00 p95=105.00  mean=40.4
+latent_T_days(전체):              p5=8.93 p25=23.39 p50=45.32 p75=85.90 p95=247.73
+duration_days(censored):          p5=2.00 p25=11.00 p50=28.00 p75=60.75 p95=134.60
+log(duration) sold 표준편차 0.841 / log(latent T) 전체 1.002
+expiry_class 별 중앙값 — sold duration / 잠재 T / n(sold) / n(전체):
+  short     13.0 /   14.2 /   23 /   26
+  medium    24.0 /   30.0 /  133 /  182
+  long      29.5 /   38.8 /  180 /  291
+  none      36.0 /   55.0 /  382 /  700
+소분류별 n(전체) 최소/중앙/최대: 16 / 34 / 95
+list_price_krw: p5=10190.00 p50=29900.00 p95=88600.00  log sd=0.657 (설계 0.5 공통)
+listed/list 비율: p5=0.38 p50=0.58 p95=0.81   buy/listed 비율(purchase): p5=0.36 p50=0.48 p95=0.58
+latent_price_ratio_p(등록가/시세): p5=0.43 p50=0.82 p95=1.20  클립 하한(0.3) 0.005 상한(1.2) 0.172
+recovery_rate(sold·purchase, n=648): p5=0.52 p25=1.28 p50=1.59 p75=1.86 p95=2.30  적자(<1) 0.131
+recovery_rate(partially_sold·purchase): p5=0.08 p25=0.24 p50=0.53 p75=0.82 p95=1.33
+등급 비율: {'S': 0.389, 'A': 0.319, 'B': 0.201, 'C': 0.091}
+채널 비율: {'open_market': 0.367, 'b2b_wholesale': 0.163, 'offline_store': 0.131, 'own_online': 0.115, 'secondhand_app': 0.105, 'social_market': 0.066, 'live_commerce': 0.053}
+
+## 2. 이상치·특이 행
+IQR 규칙(Q3+3·IQR 초과) 건수 — 로그정규 꼬리 확인용:
+  duration_days      초과   12 건 (경계 183.0, 최대 240.0)
+  latent_T_days      초과   48 건 (경계 273.4, 최대 1,028.3)
+  list_price_krw     초과   17 건 (경계 126,100.0, 최대 279,100.0)
+  listed_price_krw   초과   14 건 (경계 77,300.0, 최대 199,400.0)
+  buy_price_krw      초과    7 건 (경계 37,700.0, 최대 84,200.0)
+  quantity_on_hand   초과   34 건 (경계 166.0, 최대 474.0)
+  listing_quantity   초과   43 건 (경계 103.0, 최대 349.0)
+  seller_years       초과    0 건 (경계 31.4, 최대 22.0)
+  recovery_rate      초과    0 건 (경계 5.9, 최대 2.8)
+  elapsed_days       초과    0 건 (경계 620.0, 최대 281.0)
+  unit_count         초과  244 건 (경계 1.0, 최대 50.0)
+duration_days==0 (등록 당일 판매): 0 건 → log 변환 시 0.5 로 바닥
+sold 인데 duration > 270(관측창 상한): 0 건 (정상: 0 이어야 함)
+latent_T ≥ 365: 19 건, 최대 1028 일 — lognormal 꼬리, 모두 미판매·철회로 관측됨
+recovery_rate < 0: 16 건 (판매 매출 < 수수료+배송비), == -1 클립: 2 건
+수수료+배송비 > 매출(sold): 15 건
+listed_price > list_price(정상가 초과 등록): 0 건
+buy_price > listed_price: 0 건
+listing_quantity ≥ 200: 9 건 (size_class {'small': 9}) — 소형 소모품 다량 재고
+판매자별 거래 수 상위 3: {'S000052': 51, 'S000032': 49, 'S000120': 43}
+
+## 3. Spearman 상관 (sold 만, n=718)
+                duration  latent_T  log_list_price  p_ratio  r_market  listing_qty  seller_years  unit_count  elapsed  recovery
+duration            1.00      1.00            0.06     0.15     -0.14         0.02         -0.00        0.00     0.19     -0.04
+latent_T            1.00      1.00            0.06     0.15     -0.14         0.02         -0.00       -0.00     0.19     -0.04
+log_list_price      0.06      0.06            1.00     0.10     -0.09        -0.09          0.05       -0.13    -0.04      0.32
+p_ratio             0.15      0.15            0.10     1.00     -0.75        -0.04          0.02       -0.02     0.01      0.22
+r_market           -0.14     -0.14           -0.09    -0.75      1.00         0.04          0.02        0.01     0.00     -0.14
+listing_qty         0.02      0.02           -0.09    -0.04      0.04         1.00          0.06        0.06     0.03      0.25
+seller_years       -0.00     -0.00            0.05     0.02      0.02         0.06          1.00        0.03    -0.05      0.01
+unit_count          0.00     -0.00           -0.13    -0.02      0.01         0.06          0.03        1.00     0.02      0.03
+elapsed             0.19      0.19           -0.04     0.01      0.00         0.03         -0.05        0.02     1.00     -0.01
+recovery           -0.04     -0.04            0.32     0.22     -0.14         0.25          0.01        0.03    -0.01      1.00
+주목: duration~latent_T 1.00 (sold 는 T 그대로이므로 1에 가까워야 함), duration~elapsed 0.19 (선택 편향: 경과일이 짧으면 짧은 T 만 sold 로 관측), duration~p_ratio 0.15 (가격 탄력), recovery~duration -0.04
+
+범주별 sold 중앙값 / KM 중앙값(전체, 중도절단 반영) / 잠재 T 중앙값 / n_sold / n_all:
+  condition_grade=S                  33.0 /   46.0 /   45.9 /  277 /  466
+  condition_grade=A                  27.0 /   44.0 /   43.1 /  230 /  383
+  condition_grade=B                  33.5 /   44.0 /   44.2 /  148 /  241
+  condition_grade=C                  32.0 /   47.0 /   59.1 /   63 /  109
+  channel=open_market        39.5 /   53.0 /   51.5 /  260 /  440
+  channel=own_online         44.5 /   68.0 /   68.9 /   70 /  138
+  channel=offline_store      36.5 /   58.0 /   56.0 /   88 /  157
+  channel=secondhand_app     28.0 /   50.0 /   49.9 /   57 /  126
+  channel=b2b_wholesale      17.0 /   17.0 /   17.1 /  171 /  195
+  channel=live_commerce      20.0 /   26.0 /   26.7 /   39 /   64
+  channel=social_market      38.0 /   56.0 /   52.1 /   33 /   79
+  brand_tier=major              29.0 /   36.0 /   35.6 /  146 /  210
+  brand_tier=mid                30.0 /   42.0 /   41.8 /  261 /  427
+  brand_tier=minor              32.0 /   49.0 /   47.4 /  167 /  276
+  brand_tier=unbranded          41.0 /   63.0 /   60.7 /  113 /  230
+  brand_tier=unknown            32.0 /   47.0 /   50.2 /   31 /   56
+  seller_region=chungcheong        45.0 /   69.0 /   66.2 /   59 /  106
+  seller_region=gangwon            29.0 /   50.0 /   49.6 /    9 /   18
+  seller_region=gyeonggi_incheon   28.0 /   44.0 /   41.0 /  163 /  295
+  seller_region=gyeongsang         30.0 /   39.0 /   40.1 /  177 /  257
+  seller_region=jeju               36.0 /   41.0 /   41.0 /   11 /   17
+  seller_region=jeolla             32.0 /   45.0 /   44.1 /   70 /  104
+  seller_region=seoul              31.0 /   47.0 /   46.9 /  229 /  402
+  size_class=small              30.0 /   46.0 /   45.7 /  308 /  520
+  size_class=medium             33.0 /   48.0 /   48.5 /  248 /  410
+  size_class=large              28.0 /   44.0 /   41.8 /  162 /  269
+
+## 4. 승수 복원 — log T ~ 소분류 FE + 등급 + 채널 + log(p/0.8)
+정답(log 승수): 등급 S=+0.000, A=+0.095, B=+0.336, C=+0.693 / 채널 open_market=+0.000, own_online=+0.262, offline_store=+0.182, secondhand_app=-0.105, b2b_wholesale=-1.204, live_commerce=-0.693, social_market=-0.223 / 가격 탄력 +1.000
+오차 항은 소분류별 lognormal sigma(0.60~0.90)이므로 잔차 sd ≈ 0.7~0.8 이 정상.
+[(a) 오라클: 전체 행, y=log(잠재 T)] n=1199 sigma=0.781
+   grade=A              추정 +0.123 (se 0.055)  정답 +0.095  차이 +0.028  승수비 1.13 vs 1.10
+   grade=B              추정 +0.210 (se 0.064)  정답 +0.336  차이 -0.126  승수비 1.23 vs 1.40
+   grade=C              추정 +0.731 (se 0.092)  정답 +0.693  차이 +0.038  승수비 2.08 vs 2.00
+   ch=b2b_wholesale     추정 -1.163 (se 0.068)  정답 -1.204  차이 +0.041  승수비 0.31 vs 0.30
+   ch=live_commerce     추정 -0.645 (se 0.107)  정답 -0.693  차이 +0.048  승수비 0.52 vs 0.50
+   ch=offline_store     추정 +0.020 (se 0.073)  정답 +0.182  차이 -0.162  승수비 1.02 vs 1.20
+   ch=own_online        추정 +0.330 (se 0.077)  정답 +0.262  차이 +0.068  승수비 1.39 vs 1.30
+   ch=secondhand_app    추정 -0.114 (se 0.081)  정답 -0.105  차이 -0.009  승수비 0.89 vs 0.90
+   ch=social_market     추정 -0.054 (se 0.097)  정답 -0.223  차이 +0.170  승수비 0.95 vs 0.80
+   log_p                추정 +0.872 (se 0.076)  정답 +1.000  차이 -0.128  승수비 2.39 vs 2.72
+   최대 |차이| = 0.170
+[(b) sold 만 OLS: y=log(duration) — 선택 편향 기대] n=718 sigma=0.684
+   grade=A              추정 +0.053 (se 0.064)  정답 +0.095  차이 -0.042  승수비 1.05 vs 1.10
+   grade=B              추정 +0.139 (se 0.073)  정답 +0.336  차이 -0.197  승수비 1.15 vs 1.40
+   grade=C              추정 +0.491 (se 0.109)  정답 +0.693  차이 -0.203  승수비 1.63 vs 2.00
+   ch=b2b_wholesale     추정 -0.933 (se 0.069)  정답 -1.204  차이 +0.271  승수비 0.39 vs 0.30
+   ch=live_commerce     추정 -0.670 (se 0.121)  정답 -0.693  차이 +0.023  승수비 0.51 vs 0.50
+   ch=offline_store     추정 -0.067 (se 0.087)  정답 +0.182  차이 -0.249  승수비 0.94 vs 1.20
+   ch=own_online        추정 +0.160 (se 0.094)  정답 +0.262  차이 -0.102  승수비 1.17 vs 1.30
+   ch=secondhand_app    추정 -0.345 (se 0.103)  정답 -0.105  차이 -0.239  승수비 0.71 vs 0.90
+   ch=social_market     추정 -0.129 (se 0.130)  정답 -0.223  차이 +0.094  승수비 0.88 vs 0.80
+   log_p                추정 +0.635 (se 0.090)  정답 +1.000  차이 -0.365  승수비 1.89 vs 2.72
+   최대 |차이| = 0.365
+(c) KM 중앙값 비(기준 S / open_market), 중도절단 반영, 공변량 통제 없음:
+   condition_grade=A                KM중앙값   44.0 / 기준  46.0 =  0.96  정답 승수 1.10
+   condition_grade=B                KM중앙값   44.0 / 기준  46.0 =  0.96  정답 승수 1.40
+   condition_grade=C                KM중앙값   47.0 / 기준  46.0 =  1.02  정답 승수 2.00
+   channel=own_online       KM중앙값   68.0 / 기준  53.0 =  1.28  정답 승수 1.30
+   channel=offline_store    KM중앙값   58.0 / 기준  53.0 =  1.09  정답 승수 1.20
+   channel=secondhand_app   KM중앙값   50.0 / 기준  53.0 =  0.94  정답 승수 0.90
+   channel=b2b_wholesale    KM중앙값   17.0 / 기준  53.0 =  0.32  정답 승수 0.30
+   channel=live_commerce    KM중앙값   26.0 / 기준  53.0 =  0.49  정답 승수 0.50
+   channel=social_market    KM중앙값   56.0 / 기준  53.0 =  1.06  정답 승수 0.80
+[(d) 로그정규 AFT: 전체 행, 중도절단 반영 (disposed 3건도 절단 처리)] n=1199 sigma=0.755 loglik=-1015.7
+   grade=A              추정 +0.131 (se 0.062)  정답 +0.095  차이 +0.035  승수비 1.14 vs 1.10
+   grade=B              추정 +0.181 (se 0.071)  정답 +0.336  차이 -0.155  승수비 1.20 vs 1.40
+   grade=C              추정 +0.687 (se 0.103)  정답 +0.693  차이 -0.006  승수비 1.99 vs 2.00
+   ch=b2b_wholesale     추정 -1.172 (se 0.071)  정답 -1.204  차이 +0.032  승수비 0.31 vs 0.30
+   ch=live_commerce     추정 -0.655 (se 0.118)  정답 -0.693  차이 +0.038  승수비 0.52 vs 0.50
+   ch=offline_store     추정 +0.007 (se 0.082)  정답 +0.182  차이 -0.175  승수비 1.01 vs 1.20
+   ch=own_online        추정 +0.215 (se 0.089)  정답 +0.262  차이 -0.047  승수비 1.24 vs 1.30
+   ch=secondhand_app    추정 -0.187 (se 0.095)  정답 -0.105  차이 -0.081  승수비 0.83 vs 0.90
+   ch=social_market     추정 +0.067 (se 0.119)  정답 -0.223  차이 +0.290  승수비 1.07 vs 0.80
+   log_p                추정 +0.903 (se 0.086)  정답 +1.000  차이 -0.097  승수비 2.47 vs 2.72
+   최대 |차이| = 0.290
+요약 — 최대 |차이| : 오라클 0.170 / sold OLS 0.365 / AFT 0.290  ; 가격 탄력 추정: 0.872 / 0.635 / 0.903 (정답 1.0)
+
+## 5. 등급 효과 — 가격 통제 전후 (y=log duration, sold 만 / AFT 전체)
+설계상 C 등급은 등록가 계수 0.60 → p 가 낮아 가격 승수가 등급 승수(2.0)를 일부 상쇄. 통제 없이 보면 등급 효과가 작게 보여야 함.
+등급별 평균 p(등록가/시세): S=0.916, A=0.830, B=0.799, C=0.588
+모형                           방법            A        B        C   (정답 A +0.095 B +0.336 C +0.693)
+등급만                          sold     -0.098   -0.039   +0.043
+등급만                          AFT      -0.030   -0.025   +0.133
+등급+소분류FE                     sold     -0.077   +0.011   +0.135
+등급+소분류FE                     AFT      -0.006   +0.020   +0.259
+등급+소분류FE+log p               sold     -0.008   +0.089   +0.396
+등급+소분류FE+log p               AFT      +0.090   +0.144   +0.662
+등급+소분류FE+log p+채널            sold     +0.053   +0.139   +0.491
+등급+소분류FE+log p+채널            AFT      +0.131   +0.181   +0.687
+
+## 6. 회수율·적자 조건 (sold·purchase, n=648)
+정의 재계산 일치: 1.000 (하한 −1 클립 2 건 제외하면 전부)
+매출 대비 수수료 비중 중앙값 0.050, 배송비 비중 중앙값 0.082, p90 0.412
+적자율·회수율 중앙값 — 조건별:
+  channel=open_market      n= 237 적자 0.215 회수율 중앙값 1.33 배송비비중 0.154
+  channel=own_online       n=  64 적자 0.109 회수율 중앙값 1.59 배송비비중 0.104
+  channel=offline_store    n=  77 적자 0.000 회수율 중앙값 1.89 배송비비중 0.000
+  channel=secondhand_app   n=  53 적자 0.113 회수율 중앙값 1.55 배송비비중 0.109
+  channel=b2b_wholesale    n= 152 적자 0.033 회수율 중앙값 1.78 배송비비중 0.018
+  channel=live_commerce    n=  33 적자 0.182 회수율 중앙값 1.22 배송비비중 0.144
+  channel=social_market    n=  32 적자 0.312 회수율 중앙값 1.37 배송비비중 0.137
+  size_class=small            n= 272 적자 0.007 회수율 중앙값 1.69 배송비비중 0.049
+  size_class=medium           n= 228 적자 0.123 회수율 중앙값 1.58 배송비비중 0.122
+  size_class=large            n= 148 적자 0.372 회수율 중앙값 1.30 배송비비중 0.276
+  unit_price_band=<5천              n=  36 적자 0.333 회수율 중앙값 1.35 배송비비중 0.265
+  unit_price_band=5천~1만            n= 137 적자 0.277 회수율 중앙값 1.30 배송비비중 0.232
+  unit_price_band=1만~2만            n= 248 적자 0.113 회수율 중앙값 1.61 배송비비중 0.079
+  unit_price_band=2만~5만            n= 192 적자 0.036 회수율 중앙값 1.71 배송비비중 0.047
+  unit_price_band=>5만              n=  35 적자 0.000 회수율 중앙값 1.78 배송비비중 0.022
+  qty_band=1                n=  40 적자 0.425 회수율 중앙값 1.16 배송비비중 0.290
+  qty_band=2~3              n=  78 적자 0.231 회수율 중앙값 1.35 배송비비중 0.160
+  qty_band=4~10             n= 165 적자 0.170 회수율 중앙값 1.57 배송비비중 0.126
+  qty_band=>10              n= 365 적자 0.060 회수율 중앙값 1.66 배송비비중 0.050
+적자 행의 (배송비/판매수량)/판매단가 중앙값 0.54 vs 흑자 0.06
+적자 조건 요약: 배송비가 붙는 채널에서 판매단가 1만원 미만·소량(1~3개)·small/medium 일 때 집중. 수수료율(≤0.20)만으로는 적자가 나지 않음(매입가가 등록가의 0.35~0.60 이라 마진 ≥ 0.4).
+매입가 비율 반사실(매입가 × k → 회수율 ÷ k):
+  k=1.0 (buy/listed 중앙값 0.48) → 회수율 중앙값 1.59, p10 0.91, 적자 0.131
+  k=1.2 (buy/listed 중앙값 0.57) → 회수율 중앙값 1.33, p10 0.75, 적자 0.204
+  k=1.4 (buy/listed 중앙값 0.67) → 회수율 중앙값 1.14, p10 0.65, 적자 0.343
+  k=1.6 (buy/listed 중앙값 0.76) → 회수율 중앙값 1.00, p10 0.57, 적자 0.503
+  k=1.8 (buy/listed 중앙값 0.86) → 회수율 중앙값 0.89, p10 0.50, 적자 0.694
+회수율 중앙값 1.2 가 되는 k ≈ 1.33 (buy/listed 중앙값 ≈ 0.63), 1.0 이 되는 k ≈ 1.59 (buy/listed ≈ 0.76)
+
+차트: fig1_duration_dist.png, fig2_km_grade.png, fig3_coef_recovery.png, fig4_recovery.png, fig5_spearman.png
