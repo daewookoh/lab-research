@@ -1,4 +1,4 @@
-"""합성 데이터 생성기 v1 (D009). 설계: research/2026-11-13/synth_design.md, 파라미터: data/synth/params_v1.yaml.
+"""합성 데이터 생성기 v1 (D009) / v2 (D011). 설계: research/2026-11-13/synth_design.md, 파라미터: data/synth/params_v{1,2}.yaml.
 
 **전부 합성(가상) 데이터** — 실제 거래·판매자·시세 아님. 모든 분포는 가정.
 
@@ -6,10 +6,16 @@
 목표 변수는 "잠재 판매기간 T(소분류 lognormal × 승수)" 와 철회 W·폐기 D·관측일 elapsed 의 경쟁 사건으로 결정한다.
 정답(T·승수 분해·product→seller 맵)은 v1_meta.json 에 따로 저장한다.
 
+v2(D011) 추가 — params `multipliers.active: enabled_v2` 로 켠다(v1 params 는 그대로 v1 결과를 낸다):
+    brand  승수(브랜드 등급별), season 승수(등록월 × 소분류 seasonality → score_v0.season_state 판정 재사용),
+    seller 판매자 랜덤효과 exp(u), u~N(0, v2.seller_effect_sigma) — 판매자 공급 이력의 기재 정확도 분포가 u 에 따라 달라진다,
+    시즌 품목은 v2.pre_season_listing_prob 확률로 "시즌 직전(near_season) 달" 에 등록된다(나머지는 균등).
+
 사용법:
     python -m src.data.synth --params data/synth/params_v1.yaml --out data/synth/v1 \
-        [--n-products 1000] [--n-sellers 120] [--seed 20261113] [--reference-date 2026-11-13] [--expiry-anchor reference|buy]
+        [--n-products 1000] [--n-sellers 120] [--seed 20261113] [--reference-date 2026-11-13] [--expiry-anchor reference|buy] [--gzip]
     → <out>/{product,transaction,seller,market_price}.jsonl, <out>.parquet(거래×상품×판매자 평탄화), <out>_meta.json
+      (--gzip 이면 .jsonl.gz / _meta.json.gz / _flat.csv.gz 로 저장 — v2 10,000건용)
     이후 검증: python -m src.schema.product --records <out>/product.jsonl --today <reference-date> (4종 모두)
 
 라이브러리로:
@@ -18,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import math
@@ -30,6 +37,7 @@ from statistics import median
 import numpy as np
 import yaml
 
+from src.reflow.score_v0 import season_state
 from src.schema.categories import Leaf, load as load_categories
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -106,8 +114,29 @@ class SynthGenerator:
             self.l2_to_leaves[leaf.l2_code].append(code)
         self.ids = _Ids()
         self.created_at = f"{reference_date.isoformat()}T17:00:00+09:00"
-        self.multipliers_on = list(params["multipliers"]["enabled_v1"])
+        mp = params["multipliers"]
+        self.multipliers_on = list(mp[mp.get("active", "enabled_v1")])   # v1: enabled_v1 / v2: enabled_v2
+        self.V2 = params.get("v2", {})
+        self.seller_u: dict[str, float] = {}          # v2 판매자 랜덤효과 u (log T 가법)
+        self.seller_profile: dict[str, str] = {}      # v2 fast / mid / slow (u 삼분위)
+        self._near_season_days: dict[tuple, list[date]] = {}
         self.stats: Counter = Counter()
+
+    # ----- v2 보조 ------------------------------------------------------------
+    def _seller_profile(self, u: float) -> str:
+        s = float(self.V2.get("seller_effect_sigma", 0.0))
+        cut = float(self.V2.get("seller_profile_cut_sd", 0.43)) * s
+        return "fast" if u < -cut else ("slow" if u > cut else "mid")
+
+    def _near_season_listing_day(self, leaf: Leaf) -> date | None:
+        """시즌 품목: 관측창 안에서 near_season 판정이 나는 날 중 하나(균등). 없으면 None."""
+        key = tuple(leaf.seasonality)
+        if key not in self._near_season_days:
+            lo_w, hi_w = self.P["listing_window_days"]
+            days = [self.ref - timedelta(days=k) for k in range(lo_w, hi_w + 1)]
+            self._near_season_days[key] = [d for d in days if season_state(leaf.seasonality, d.month) == "near_season"]
+        cands = self._near_season_days[key]
+        return cands[int(self.rng.integers(0, len(cands)))] if cands else None
 
     # ----- 1. 판매자 ---------------------------------------------------------
     def gen_sellers(self) -> list[dict]:
@@ -121,9 +150,14 @@ class SynthGenerator:
             mains = sorted(rng.choice(l2_codes, size=k, replace=False).tolist())
             n_ch = int(_choice(rng, P["n_channels_used"]))
             channels = sorted(rng.choice(CHANNELS, size=n_ch, replace=False).tolist()) if n_ch else []
+            sid = self.ids.next("S", 6)
+            if "seller" in self.multipliers_on:
+                u = float(rng.normal(0.0, float(self.V2["seller_effect_sigma"])))
+                self.seller_u[sid] = round(u, 4)
+                self.seller_profile[sid] = self._seller_profile(u)
             sellers.append({
                 "schema_version": "0.1",
-                "seller_id": self.ids.next("S", 6),
+                "seller_id": sid,
                 "business": {
                     "type": _choice(rng, P["business_type"]),
                     "region": _choice(rng, P["region"]),
@@ -187,8 +221,11 @@ class SynthGenerator:
         buy_date_of: dict[int, date] = {}
         lo_w, hi_w = self.P["listing_window_days"]
         gap_hi = self.P["transaction"]["listed_after_buy_days"][1]
+        members_of: dict[int, list[int]] = defaultdict(list)
+        for i, s_i in enumerate(owner_idx.tolist()):
+            members_of[int(s_i)].append(i)
         for s_i in range(len(suppliers)):
-            members = [i for i in range(self.n_products) if int(owner_idx[i]) == s_i]
+            members = members_of.get(s_i, [])
             pos = 0
             while pos < len(members):
                 k = int(_choice(rng, D["batch_products"]))
@@ -228,7 +265,16 @@ class SynthGenerator:
             gap = int(rng.integers(self.P["transaction"]["listed_after_buy_days"][0], gap_hi + 1))
             gap = min(gap, (self.ref - buy_date).days - lo_w)      # listed_date ≤ ref − window 하한
             listed_date = buy_date + timedelta(days=gap)
+            # v2: 시즌 품목은 일정 확률로 "시즌 직전 달" 에 등록(등록일을 다시 뽑고 매입일을 역산 → 그 상품은 자기 배치로 분리된다)
+            if "season" in self.multipliers_on and leaf.seasonality and rng.random() < float(self.V2["pre_season_listing_prob"]):
+                d = self._near_season_listing_day(leaf)
+                if d is not None:
+                    listed_date = d
+                    buy_date = listed_date - timedelta(days=gap)
+                    buy_date_of[i] = buy_date
+                    self.stats["pre_season_relisted"] += 1
             elapsed = (self.ref - listed_date).days
+            season = season_state(leaf.seasonality, listed_date.month) if "season" in self.multipliers_on else "neutral"
             holding = max(P["holding_min_days"], int(round(_lognormal(rng, *P["holding_days"]))))
             acquired = buy_date - timedelta(days=holding)
             manufacture = None
@@ -280,7 +326,8 @@ class SynthGenerator:
             })
             p2s[pid] = seller["seller_id"]
             latent[pid] = {"r_market_ratio": round(r, 4), "buy_date": _iso(buy_date), "listed_date": _iso(listed_date),
-                           "elapsed_days": elapsed, "expiry_class": ec, "l1": leaf.l1_code}
+                           "elapsed_days": elapsed, "expiry_class": ec, "l1": leaf.l1_code,
+                           "listed_month": listed_date.month, "season_state": season, "brand_tier": brand["tier"]}
         return products, p2s, latent
 
     # ----- 3. 시세 -----------------------------------------------------------
@@ -406,11 +453,14 @@ class SynthGenerator:
                 # 잠재 판매기간 T = base × 승수
                 base = _lognormal(rng, spec["median_days"], spec["sigma"])
                 p_ratio = float(np.clip(listed_price / (prod["list_price_krw"] * lat["r_market_ratio"]), 0.3, 1.2))
+                on = self.multipliers_on
                 mult = {
                     "grade": M["grade"][grade],
                     "price": (p_ratio / M["price_ref_ratio"]) ** M["price_elasticity"],
                     "channel": M["channel"][ch],
-                    "brand": 1.0, "season": 1.0,
+                    "brand": M["brand"][lat["brand_tier"]] if "brand" in on else 1.0,
+                    "season": M["season"][lat["season_state"]] if "season" in on else 1.0,
+                    "seller": math.exp(self.seller_u[p2s[pid]]) if "seller" in on else 1.0,
                 }
                 total = 1.0
                 for k in self.multipliers_on:
@@ -484,6 +534,8 @@ class SynthGenerator:
                     "price_ratio_p": round(p_ratio, 4),
                     "withdraw_days_W": W_days, "dispose_days_D": D_days, "elapsed_days": elapsed,
                     "status": status, "expiry_class": leaf.expiry_class, "grade": grade,
+                    "season_state": lat["season_state"], "listed_month": lat["listed_month"],
+                    "seller_u": self.seller_u.get(p2s[pid], 0.0),
                 }
         return txs, tx_latent, acq_by_product
 
@@ -500,20 +552,26 @@ class SynthGenerator:
         groups: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
         for pid, sid in p2s.items():
             groups[sid][latent[pid]["buy_date"]].append(pid)
+        # (seller, buy_date) → {product: 매입가 × 매입수량} 을 한 번만 색인(판매자 × 거래 이중 루프 제거 — 10,000건용)
+        cost_index: dict[tuple[str, str], dict[str, int]] = defaultdict(dict)
+        for t in txs:
+            cost_index[(t["seller_id"], t["purchase"]["buy_date"])].setdefault(
+                t["product_id"], t["purchase"]["buy_price_krw"] * t["purchase"]["quantity"])
         for s in sellers:
             sid = s["seller_id"]
+            # v2: 기재 정확도 분포를 판매자 랜덤효과 삼분위(fast/mid/slow)에 따라 바꾼다(느린 판매자일수록 기재 부정확)
+            acc_table = D["description_accuracy"]
+            if sid in self.seller_profile:
+                acc_table = self.V2["seller_accuracy_by_profile"][self.seller_profile[sid]]
             batches = []
             for bdate in sorted(groups.get(sid, {})):
                 pids = groups[sid][bdate]
                 acq = acq_by_product[pids[0]]
                 declared = sum(prod_by_id[p]["list_price_krw"] * prod_by_id[p]["quantity_on_hand"] for p in pids)
                 # 매입 배치 정산액 = 해당 날 거래들의 매입가 × 매입수량 합(품목별 거래 1건 기준이므로 복수 등록은 1회만 센다)
-                per_pid: dict[str, int] = {}
-                for t in txs:
-                    if t["seller_id"] == sid and t["purchase"]["buy_date"] == bdate:
-                        per_pid.setdefault(t["product_id"], t["purchase"]["buy_price_krw"] * t["purchase"]["quantity"])
+                per_pid = cost_index.get((sid, bdate), {})
                 settled_v = sum(per_pid.values()) if acq == "purchase" else None
-                acc = _choice(rng, D["description_accuracy"])
+                acc = _choice(rng, acc_table)
                 issue = _choice(rng, D["issue_by_accuracy"][acc])
                 batches.append({
                     "batch_id": self.ids.next("B", 8), "supplied_date": bdate, "acquisition_type": acq,
@@ -525,7 +583,7 @@ class SynthGenerator:
                 n_b = int(rng.integers(D["inactive_batches"][0], D["inactive_batches"][1] + 1))
                 ages = sorted((int(rng.integers(lo, hi + 1)) for _ in range(n_b)), reverse=True)
                 for age in ages:
-                    acc = _choice(rng, D["description_accuracy"])
+                    acc = _choice(rng, acc_table)
                     acq = "consignment" if rng.random() < self.P["transaction"]["consignment_prob"] else "purchase"
                     declared = int(_lognormal(rng, 2_000_000, 0.8) // 1000 * 1000)
                     batches.append({
@@ -562,12 +620,13 @@ class SynthGenerator:
         self.fill_supply_history(sellers, products, p2s, latent, acq, txs)
         tables = {"seller": sellers, "product": products, "market_price": prices, "transaction": txs}
         meta = {
-            "version": self.P.get("version"), "generated_for_backlog": "D009", "synthetic": True,
+            "version": self.P.get("version"), "generated_for_backlog": self.P.get("backlog_id", "D009"), "synthetic": True,
             "seed": self.seed, "reference_date": _iso(self.ref), "expiry_anchor": self.anchor,
             "n": {k: len(v) for k, v in tables.items()},
             "multipliers_enabled": self.multipliers_on,
             "generator_stats": dict(self.stats),
             "product_to_seller": p2s,
+            "seller_latent": {sid: {"u": u, "profile": self.seller_profile[sid]} for sid, u in self.seller_u.items()},
             "product_latent": latent,
             "transaction_latent": tx_latent,
         }
@@ -580,7 +639,7 @@ def generate(params: dict | Path | str = DEFAULT_PARAMS, seed: int | None = None
     if not isinstance(params, dict):
         params = load_params(Path(params))
     seed = params["seed"] if seed is None else seed
-    n_sellers = params["seller"]["count_v1"] if n_sellers is None else n_sellers
+    n_sellers = params["seller"].get("count", params["seller"]["count_v1"]) if n_sellers is None else n_sellers
     ref = date.fromisoformat(params["reference_date"]) if reference_date is None else reference_date
     g = SynthGenerator(params, seed, n_products, n_sellers, ref, expiry_anchor)
     return g.generate()
@@ -593,7 +652,8 @@ def summarize(tables: dict[str, list[dict]], meta: dict, params: dict) -> str:
     leaves = {l.code: l for l in load_categories()}
     txs, prods = tables["transaction"], {p["product_id"]: p for p in tables["product"]}
     lat = meta["transaction_latent"]
-    lines = [f"# 합성 v1 요약 — n: {meta['n']}, seed={meta['seed']}, 기준일={meta['reference_date']}, expiry_anchor={meta['expiry_anchor']}"]
+    lines = [f"# 합성 v{meta.get('version')} 요약 — n: {meta['n']}, seed={meta['seed']}, 기준일={meta['reference_date']}, "
+             f"expiry_anchor={meta['expiry_anchor']}, 승수={meta['multipliers_enabled']}, stats={meta.get('generator_stats')}"]
     lines.append("## 1. 묶음별 잠재 T 중앙값(승수 적용) / sold 만 duration 중앙값 / 설계 사전값")
     prior = {"short": 14, "medium": 30, "long": 45, "none": 60}
     for ec in ("short", "medium", "long", "none"):
@@ -624,6 +684,21 @@ def summarize(tables: dict[str, list[dict]], meta: dict, params: dict) -> str:
     sold = [t["duration_days"] for t in txs if st(t) == "sold"]
     lines.append(f"  sold 만의 duration 중앙값={median(sold):.1f} / 전체 duration 중앙값={median([t['duration_days'] for t in txs]):.1f} / "
                  f"잠재 T 중앙값={median([v['T_latent_days'] for v in lat.values()]):.1f}  (설계 점검 28.2 / 28.0 / 44.3)")
+    if "season" in meta["multipliers_enabled"] or "brand" in meta["multipliers_enabled"]:
+        lines.append("## 2b. v2 승수 묶음별 T 중앙값(설계 승수 방향 확인용)")
+        for key in ("season_state", "grade"):
+            if key == "season_state":
+                levels = ["in_season", "near_season", "neutral", "off_season"]
+                lines.append("  시즌 " + " / ".join(
+                    f"{lv} n={sum(1 for v in lat.values() if v.get('season_state') == lv)} T={median([v['T_latent_days'] for v in lat.values() if v.get('season_state') == lv] or [float('nan')]):.1f}"
+                    for lv in levels))
+        bt = {t["transaction_id"]: prods[t["product_id"]]["brand"]["tier"] for t in txs}
+        lines.append("  브랜드 " + " / ".join(
+            f"{lv} n={sum(1 for k in bt if bt[k] == lv)} T={median([lat[k]['T_latent_days'] for k in bt if bt[k] == lv] or [float('nan')]):.1f}"
+            for lv in ("major", "mid", "minor", "unbranded", "unknown")))
+        if meta.get("seller_latent"):
+            us = [v["u"] for v in meta["seller_latent"].values()]
+            lines.append(f"  판매자 u: n={len(us)} sd={np.std(us):.3f} profile {Counter(v['profile'] for v in meta['seller_latent'].values())}")
     lines.append("## 3. 상품 속성")
     lines.append(f"  등급 분포 {share(tables['product'], lambda p: p['condition_grade'])}  (설계 점검 S 0.43 A 0.30 B 0.17 C 0.10)")
     lines.append(f"  브랜드 {share(tables['product'], lambda p: p['brand']['tier'])}")
@@ -686,22 +761,31 @@ def flatten(tables: dict[str, list[dict]], meta: dict):
             "latent_mult_channel": l["multipliers"]["channel"], "latent_price_ratio_p": l["price_ratio_p"],
             "latent_market_ratio_r": meta["product_latent"][p["product_id"]]["r_market_ratio"],
             "latent_W_days": l["withdraw_days_W"], "latent_D_days": l["dispose_days_D"], "elapsed_days": l["elapsed_days"],
+            # v2 열(v1 데이터에서는 승수 1.0 / neutral / 0.0)
+            "listed_month": l.get("listed_month", date.fromisoformat(t["listing"]["listed_date"]).month),
+            "season_state": l.get("season_state", "neutral"),
+            "latent_mult_brand": l["multipliers"].get("brand", 1.0), "latent_mult_season": l["multipliers"].get("season", 1.0),
+            "latent_mult_seller": l["multipliers"].get("seller", 1.0), "latent_seller_u": l.get("seller_u", 0.0),
         })
     return pd.DataFrame(rows)
 
 
-def write_outputs(tables: dict[str, list[dict]], meta: dict, out_dir: Path, params_path: Path) -> dict[str, Path]:
+def write_outputs(tables: dict[str, list[dict]], meta: dict, out_dir: Path, params_path: Path,
+                  use_gzip: bool = False) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    bid = meta.get("generated_for_backlog", "D009")
     header = {
-        "product": "D009 합성 상품 레코드 — 전부 합성(가상) 데이터. 실제 상품·거래 아님. 브랜드명은 가명.",
-        "transaction": "D009 합성 거래 결과 레코드 — 전부 합성(가상) 데이터. product_id·seller_id 는 같은 폴더의 product.jsonl·seller.jsonl 참조.",
-        "seller": "D009 합성 판매자 이력 레코드 — 전부 합성(가상) 데이터. 실제 판매자·사업체 정보 아님.",
-        "market_price": "D009 합성 시세 관측 레코드 — 전부 합성(가상) 데이터(source.collected_by=synthetic). 플랫폼 식별자는 자리표시용.",
+        "product": f"{bid} 합성 상품 레코드 — 전부 합성(가상) 데이터. 실제 상품·거래 아님. 브랜드명은 가명.",
+        "transaction": f"{bid} 합성 거래 결과 레코드 — 전부 합성(가상) 데이터. product_id·seller_id 는 같은 폴더의 product.jsonl·seller.jsonl 참조.",
+        "seller": f"{bid} 합성 판매자 이력 레코드 — 전부 합성(가상) 데이터. 실제 판매자·사업체 정보 아님.",
+        "market_price": f"{bid} 합성 시세 관측 레코드 — 전부 합성(가상) 데이터(source.collected_by=synthetic). 플랫폼 식별자는 자리표시용.",
     }
+    gz = ".gz" if use_gzip else ""
+    opener = (lambda p: gzip.open(p, "wt", encoding="utf-8")) if use_gzip else (lambda p: open(p, "w", encoding="utf-8"))
     paths = {}
     for name, recs in tables.items():
-        p = out_dir / f"{name}.jsonl"
-        with open(p, "w", encoding="utf-8") as f:
+        p = out_dir / f"{name}.jsonl{gz}"
+        with opener(p) as f:
             f.write(f"# {header[name]} seed={meta['seed']} 기준일={meta['reference_date']} (python -m src.data.synth)\n")
             for r in recs:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -709,8 +793,8 @@ def write_outputs(tables: dict[str, list[dict]], meta: dict, out_dir: Path, para
     meta = dict(meta)
     meta["params_path"] = str(params_path.relative_to(REPO_ROOT)) if params_path.is_relative_to(REPO_ROOT) else str(params_path)
     meta["params_sha256"] = hashlib.sha256(params_path.read_bytes()).hexdigest()
-    meta_path = out_dir.parent / f"{out_dir.name}_meta.json"
-    with open(meta_path, "w", encoding="utf-8") as f:
+    meta_path = out_dir.parent / f"{out_dir.name}_meta.json{gz}"
+    with opener(meta_path) as f:
         json.dump(meta, f, ensure_ascii=False, indent=1)
     paths["meta"] = meta_path
     df = flatten(tables, meta)
@@ -718,8 +802,8 @@ def write_outputs(tables: dict[str, list[dict]], meta: dict, out_dir: Path, para
         pq = out_dir.parent / f"{out_dir.name}.parquet"
         df.to_parquet(pq, index=False)
         paths["parquet"] = pq
-    except ImportError as e:   # pyarrow/fastparquet 없으면 CSV 로 대체 저장(같은 열)
-        csv = out_dir.parent / f"{out_dir.name}_flat.csv"
+    except ImportError as e:   # pyarrow/fastparquet 없으면 CSV 로 대체 저장(같은 열; pandas 가 .gz 를 투명하게 읽는다)
+        csv = out_dir.parent / f"{out_dir.name}_flat.csv{gz}"
         df.to_csv(csv, index=False)
         paths["flat_csv"] = csv
         print(f"[warn] parquet 저장 생략({e}) → {csv.name} 로 대체", file=sys.stderr)
@@ -736,10 +820,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--reference-date", type=lambda s: date.fromisoformat(s), default=None)
     ap.add_argument("--expiry-anchor", choices=["reference", "buy"], default=None)
     ap.add_argument("--summary", type=Path, default=None, help="요약 텍스트 저장 경로(생략하면 stdout 만)")
+    ap.add_argument("--gzip", action="store_true", help="JSONL·meta·flat CSV 를 gzip 으로 저장(대용량 v2용)")
     a = ap.parse_args(argv)
     params = load_params(a.params)
     tables, meta = generate(params, a.seed, a.n_products, a.n_sellers, a.reference_date, a.expiry_anchor)
-    paths = write_outputs(tables, meta, a.out, a.params)
+    paths = write_outputs(tables, meta, a.out, a.params, use_gzip=a.gzip)
     text = summarize(tables, meta, params)
     print(text)
     if a.summary:

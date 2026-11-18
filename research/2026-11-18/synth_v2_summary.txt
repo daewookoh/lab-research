@@ -1,0 +1,40 @@
+# 합성 v2 요약 — n: {'seller': 800, 'product': 10000, 'market_price': 14945, 'transaction': 11980}, seed=20261118, 기준일=2026-11-18, expiry_anchor=reference, 승수=['grade', 'price', 'channel', 'season', 'brand', 'seller'], stats={'pre_season_relisted': 2448, 'recovery_clipped': 16}
+## 1. 묶음별 잠재 T 중앙값(승수 적용) / sold 만 duration 중앙값 / 설계 사전값
+  short  n= 225 base 중앙값= 14.7 T 중앙값= 14.1 sold duration 중앙값= 12.0 사전값=14
+  medium n=2359 base 중앙값= 29.9 T 중앙값= 28.1 sold duration 중앙값= 21.0 사전값=30
+  long   n=2372 base 중앙값= 45.4 T 중앙값= 45.2 sold duration 중앙값= 28.0 사전값=45
+  none   n=7024 base 중앙값= 56.8 T 중앙값= 56.5 sold duration 중앙값= 32.0 사전값=60
+## 2. 관측 상태 비율 / 중도절단율(censored=true: listed·partially_sold·withdrawn)
+  전체   {'sold': 0.572, 'withdrawn': 0.236, 'partially_sold': 0.126, 'listed': 0.064, 'disposed': 0.003}  censored=0.426  (설계 점검: sold 0.569 / withdrawn 0.230 / partially_sold 0.139 / listed 0.038 / disposed 0.024)
+  short  {'sold': 0.853, 'withdrawn': 0.093, 'listed': 0.036, 'partially_sold': 0.018}
+  medium {'sold': 0.696, 'withdrawn': 0.162, 'partially_sold': 0.086, 'listed': 0.052, 'disposed': 0.004}
+  long   {'sold': 0.564, 'withdrawn': 0.218, 'partially_sold': 0.165, 'listed': 0.052, 'disposed': 0.0}
+  none   {'sold': 0.523, 'withdrawn': 0.271, 'partially_sold': 0.13, 'listed': 0.072, 'disposed': 0.003}
+  grade S {'sold': 0.568, 'withdrawn': 0.239, 'partially_sold': 0.131, 'listed': 0.061, 'disposed': 0.001}  T 중앙값=45.2
+  grade A {'sold': 0.58, 'withdrawn': 0.228, 'partially_sold': 0.125, 'listed': 0.065, 'disposed': 0.002}  T 중앙값=45.2
+  grade B {'sold': 0.574, 'withdrawn': 0.236, 'partially_sold': 0.118, 'listed': 0.07, 'disposed': 0.002}  T 중앙값=46.5
+  grade C {'sold': 0.558, 'withdrawn': 0.242, 'partially_sold': 0.127, 'listed': 0.06, 'disposed': 0.013}  T 중앙값=47.0
+  open_market     n=4167 {'sold': 0.541, 'withdrawn': 0.242, 'partially_sold': 0.144, 'listed': 0.07, 'disposed': 0.002}  T 중앙값=52.6
+  own_online      n=1544 {'sold': 0.457, 'withdrawn': 0.297, 'partially_sold': 0.156, 'listed': 0.086, 'disposed': 0.005}  T 중앙값=68.0
+  offline_store   n=1612 {'sold': 0.528, 'withdrawn': 0.207, 'partially_sold': 0.18, 'listed': 0.081, 'disposed': 0.004}  T 중앙값=63.8
+  secondhand_app  n=1292 {'sold': 0.502, 'withdrawn': 0.329, 'partially_sold': 0.102, 'listed': 0.065, 'disposed': 0.002}  T 중앙값=51.3
+  b2b_wholesale   n=1911 {'sold': 0.839, 'partially_sold': 0.07, 'withdrawn': 0.063, 'listed': 0.027, 'disposed': 0.002}  T 중앙값=16.5
+  live_commerce   n= 615 {'sold': 0.574, 'withdrawn': 0.322, 'partially_sold': 0.062, 'listed': 0.042}  T 중앙값=28.2
+  social_market   n= 839 {'sold': 0.511, 'withdrawn': 0.335, 'partially_sold': 0.094, 'listed': 0.055, 'disposed': 0.005}  T 중앙값=45.5
+  sold 만의 duration 중앙값=28.0 / 전체 duration 중앙값=28.0 / 잠재 T 중앙값=45.7  (설계 점검 28.2 / 28.0 / 44.3)
+## 2b. v2 승수 묶음별 T 중앙값(설계 승수 방향 확인용)
+  시즌 in_season n=2434 T=44.4 / near_season n=4629 T=48.1 / neutral n=2964 T=32.8 / off_season n=1953 T=69.1
+  브랜드 major n=2459 T=27.9 / mid n=3899 T=38.8 / minor n=2898 T=55.1 / unbranded n=2099 T=74.5 / unknown n=625 T=58.1
+  판매자 u: n=800 sd=0.247 profile Counter({'slow': 279, 'mid': 270, 'fast': 251})
+## 3. 상품 속성
+  등급 분포 {'S': 0.434, 'A': 0.289, 'B': 0.178, 'C': 0.099}  (설계 점검 S 0.43 A 0.30 B 0.17 C 0.10)
+  브랜드 {'mid': 0.326, 'minor': 0.242, 'major': 0.207, 'unbranded': 0.173, 'unknown': 0.053}
+  포장 {'sealed': 0.449, 'box_opened': 0.273, 'box_damaged': 0.131, 'no_box': 0.077, 'repackaged': 0.07}
+  유통기한 있음 4157/10000, 잔여 ≤30일(v0 게이트 G1) 154건, ≤90일 532건
+  소분류별 sold 건수 min=113 median=202 max=637 / sold<5 소분류=[]
+## 4. 거래·회수율
+  acquisition {'purchase': 0.899, 'consignment': 0.101}  복수 등록 상품 1980
+  recovery_rate(sold) n=6134 p10/median/p90=0.907/1.576/2.185  <1(적자) 0.119; 전체(null 제외) median=1.107; 하한 클립 16건
+## 5. 시세·판매자
+  시세 14945건, 상품당 {1: 0.5, 2: 0.335, 3: 0.166}  stale(>60일) 0.336  used 0.291  시세 없는 상품 1029
+  판매자 800명 status {'active': 0.809, 'dormant': 0.121, 'churned': 0.043, 'blocked': 0.028}  상품 공급 판매자 664명  배치 6875건, 판매자당 상품 max=121
