@@ -148,3 +148,25 @@ def lognormal_aft(X: np.ndarray, time: np.ndarray, event: np.ndarray, names: lis
     except np.linalg.LinAlgError:
         se = np.full(k + 1, np.nan)
     return FitResult(names, theta[:k], se[:k], float(np.exp(theta[k])), int(len(y)), loglik=-float(res.fun))
+
+
+def concordance_index(time: np.ndarray, event: np.ndarray, risk: np.ndarray, tie_tol: float = 0.0) -> tuple[float, int]:
+    """Harrell C-index (D012, 2026-11-19). 우측 중도절단을 반영한 순위 일치율.
+
+    risk 가 **클수록 사건(판매)이 빨리** 일어난다고 예측하는 점수(Re-Flow 총점처럼). 비교 가능한 쌍 = 사건이 먼저 난 쪽이
+    사건(event=1)이고 그 시각이 다른 쪽의 관측 시각보다 짧은 쌍. 일치 = 먼저 팔린 쪽의 risk 가 더 큼, risk 동점은 0.5.
+    돌려주는 값: (C, 비교 가능한 쌍 수). 0.5 = 무정보, 1 = 완전 일치. 메모리 때문에 사건 행 단위로 벡터화(O(n_event·n)).
+    """
+    time = np.asarray(time, dtype=float)
+    event = np.asarray(event, dtype=int)
+    risk = np.asarray(risk, dtype=float)
+    conc = 0.0
+    n_pairs = 0
+    for i in np.nonzero(event == 1)[0]:
+        later = time > time[i]                       # i 가 먼저 팔렸고 j 는 그보다 오래 관측(사건이든 절단이든)
+        if not later.any():
+            continue
+        d = risk[i] - risk[later]
+        conc += float(np.sum(d > tie_tol) + 0.5 * np.sum(np.abs(d) <= tie_tol))
+        n_pairs += int(later.sum())
+    return (conc / n_pairs if n_pairs else float("nan")), n_pairs

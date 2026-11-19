@@ -69,3 +69,33 @@ def test_aft_recovers_under_censoring_better_than_event_only_ols():
         assert aft.coef(term) == pytest.approx(truth, abs=0.1)
     assert aft.sigma == pytest.approx(0.7, abs=0.06)
     assert aft.loglik is not None and np.all(np.isfinite(aft.se))
+
+
+# ---------------------------------------------------------------- D012 C-index
+def test_concordance_hand_computed():
+    from src.eval.survival import concordance_index
+    # 시각 1(사건) 2(절단) 3(사건) 4(사건) ; risk 높을수록 빨리 팔린다고 예측
+    t = np.array([1, 2, 3, 4]); e = np.array([1, 0, 1, 1])
+    # 쌍: (1,2)(1,3)(1,4) + (3,4) = 4쌍. 2(절단)는 3·4 와 비교 불가.
+    c, n = concordance_index(t, e, np.array([4.0, 3.0, 2.0, 1.0]))
+    assert n == 4 and c == 1.0
+    c, n = concordance_index(t, e, np.array([1.0, 2.0, 3.0, 4.0]))
+    assert c == 0.0
+    c, n = concordance_index(t, e, np.array([1.0, 1.0, 1.0, 1.0]))
+    assert c == 0.5
+
+
+def test_concordance_recovers_signal_under_censoring():
+    from src.eval.survival import concordance_index
+    rng = np.random.default_rng(3)
+    n = 2000
+    x = rng.normal(size=n)
+    T = np.exp(np.log(30) - 0.6 * x + 0.5 * rng.normal(size=n))   # x 클수록 빨리 팔림
+    C = rng.uniform(5, 120, n)
+    obs = np.minimum(T, C); ev = (T <= C).astype(int)
+    c_true, _ = concordance_index(T, np.ones(n, int), x)
+    c_cens, _ = concordance_index(obs, ev, x)
+    assert 0.7 < c_true < 0.85
+    assert abs(c_cens - c_true) < 0.03            # 절단 반영 C 는 완전관측 C 와 거의 같아야 한다
+    c_rand, _ = concordance_index(obs, ev, rng.normal(size=n))
+    assert abs(c_rand - 0.5) < 0.03
