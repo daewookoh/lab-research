@@ -1,0 +1,336 @@
+# 시세 데이터 소스 목록 v0.1 — D016 (2026-11-24) / AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 목적: market_price.json 의 source.platform enum 후보와, D018 파이프라인 설계·D019 수집기 v1 이 고를 1차 소스를 정한다.
+# 각 항목의 evidence 는 2026-11-24 에 실제로 읽은 페이지만 적는다. 읽지 못한 것은 verified: false 로 두고 추정임을 note 에 쓴다.
+#
+# 필드
+#   platform      : market_price.json source.platform 에 넣을 식별자(snake_case, ≤50자)
+#   channel       : market_price.json source.channel enum 값
+#   access        : api | file | crawler | manual   (market_price.json source.collected_by 와 대응 — file 은 api 로 기록)
+#   price_type    : listing(등록가) | sale(실판매가) | asking(중고 호가)
+#   condition     : [new] | [used] | [new, used]
+#   covers        : 대분류 코드(FD·LV·BT·FA·DE·HO·HB) 중 이 소스에서 시세를 구할 수 있다고 보는 것
+#   sold_count    : 플랫폼이 판매량(구매 건수)을 노출하는지 (sold_count_30d 채울 수 있는지)
+#   tos_status    : clear(허용 확인) | conditional(허용되나 저장·용도 제약) | prohibited(약관·robots 로 금지) | unknown(미확인)
+#   legal_notes   : 약관·robots 근거(조항 번호·문구 요지). 2차 자료는 "(2차)" 로 표시
+#   limits        : 호출 한도·비용
+#   verified      : 오늘 1차 자료(공식 문서·약관·포털 페이지)를 직접 읽었는지
+#   verified_on   : 확인일
+#   evidence      : 읽은 URL
+#   priority      : D019 1차 수집기 후보 우선순위 (1 높음 ~ 5 낮음, 0 = 후보 아님)
+
+version: "0.1"
+defined_on: "2026-11-24"
+status: draft
+
+sources:
+
+  - platform: price_go_kr
+    name: 한국소비자원 참가격 생필품 가격정보 (공공데이터포털)
+    channel: offline_store
+    access: file
+    price_type: sale
+    condition: [new]
+    covers: [FD, LV, BT, HB]
+    sold_count: false
+    tos_status: clear
+    legal_notes: >
+      공공데이터포털 이용허락범위 "제한 없음", 비용 무료(파일 15083256). GW 오픈API(15158701) 는 "공공저작물 출처표시(제1유형)".
+      파일 다운로드는 로그인 없이 가능, 오픈API 는 활용신청 필요(심의 유형 미확인).
+    limits: >
+      파일 월간 갱신(2026-09-25 스냅샷 235,632행, 차기 등록 예정 2026-11-13 표기), API 트래픽 한도 미기재.
+      필드: 상품명(GOOD_NAME)·조사일·판매가격(원)·판매업소(SORE_NAME)·제조사·세일여부·원플러스원. API 조회는 업체ID 또는 상품ID 중 하나 필수.
+    verified: true
+    verified_on: "2026-11-24"
+    evidence:
+      - https://www.data.go.kr/data/15083256/fileData.do
+      - https://www.data.go.kr/catalog/15158701/openapi.json
+    note: >
+      오프라인 소매(판매업소명만 있고 대형마트·SSM·전통시장 구분은 페이지에 없음) 실판매가. 품목 수·판매처 유형은 페이지에 미기재 — CSV 를 받아 세어야 함(이 환경은 포털 파일 다운로드 불가).
+      우리 상품(장기재고)의 "정상 소매가" 기준선 용도. 온라인 등록가가 아니므로 market_price.channel=offline_store 로 기록.
+    priority: 1
+
+  - platform: naver_apihub_shop
+    name: 네이버 API HUB 쇼핑 검색 (구 개발자센터 /v1/search/shop)
+    channel: price_comparison
+    access: api
+    price_type: listing
+    condition: [new, used]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: conditional
+    legal_notes: >
+      NAVER API 서비스 이용약관(API HUB, 2026-06-24 판, 2026-06-25 시행) 일반조건 7.3③ — API 제공 정보를 허용 범위를 넘어
+      "무단으로 복제, 저장(캐시 행위 포함), 가공, 배포" 금지, "각 API 의 제공 취지나 목적에 맞지 않게 API 제공 정보를 저장하거나 이용하는 행위" 금지.
+      특약(검색 API) 2.1 — 검색결과를 "독립적으로 노출" 해야 하며 앞·뒤·중간 삽입·왜곡 금지. 7.2② 사용자에게 대가 수취 금지. 7.3④ 결과화면과 광고 동시 노출 금지.
+      7.3⑫ 자동화 프로그램 접속·주기적 접속 과부하 금지. "AI 학습 금지"·"크롤링" 문구는 약관 원문에 없음(블로그 2차 해설에만 있음).
+      → 시세를 레코드로 축적하는 우리 용도는 7.3③ "저장" 과 충돌 가능. 법무·네이버 측 확인 전엔 conditional.
+    limits: >
+      API HUB 로 이관(블로그: 2026-09-07; 공식 가이드는 날짜 없음). 한시적 무료, 유료 전환 시 사전 공지. NAVER 검색 카테고리 합산 월 775,000건(일 단위 아님),
+      키당 50 RPS, 초과 429. 무료 기간 한도 증량 불가. 인증 헤더 X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY, 도메인 naverapihub.apigw.ntruss.com.
+      구 개발자센터 신규 신청 중단(블로그: 2026-07-31)·유예 2027-06-30(블로그, 2차). 공식 사용 가이드(apihub-use)의 검색 API 목록에 "쇼핑" 이 빠져 있어 API HUB 에서 쇼핑 검색 제공 여부 자체가 미확인.
+    verified: true
+    verified_on: "2026-11-24"
+    evidence:
+      - https://guide.ncloud-docs.com/docs/apihub-overview
+      - https://guide.ncloud-docs.com/docs/apihub-use
+      - https://guide.ncloud-docs.com/docs/apihub-spec
+      - https://guide.ncloud-docs.com/docs/apihub-migration
+      - https://xv-ncloud.pstatic.net/images/provision/NAVER_API_서비스_이용약관_APIHUB_최종_260624_KR_clean_1782291589723.pdf
+      - https://brunch.co.kr/@ainote/123
+    note: >
+      구 명세(오늘 미확인, 기억 기준): query·display(≤100)·start(≤1000)·sort(sim/date/asc/dsc)·filter·exclude, 응답 title·link·image·lprice·hprice·mallName·productId·productType·brand·maker·category1~4.
+      응답이 등록가 분포(lprice)와 판매처(mallName)·카테고리를 주므로 우리 스키마의 n_listings·price_min/median/max 를 바로 채울 수 있는 유일한 전 카테고리 소스. 단 약관 7.3③ 때문에 "저장" 가능 여부가 관건.
+    priority: 2
+
+  - platform: coupang_partners
+    name: 쿠팡 파트너스 Open API 상품검색 (affiliate_open_api /products/search)
+    channel: open_market
+    access: api
+    price_type: listing
+    condition: [new]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: conditional
+    legal_notes: >
+      제휴(affiliate) 수익 프로그램용 API. 파트너스 가입·승인 필요. 파트너스 약관의 데이터 저장·용도 조항은 오늘 미확인(partners.coupang.com 미열람).
+      쿠팡 사이트 이용약관(np/policies/terms)은 접근 실패로 미확인. 쿠팡 robots.txt 는 User-agent: * 전체 Disallow(2차 자료, 2026-10-04 기준).
+    limits: >
+      HMAC-SHA256(CEA) 인증. 상품검색 limit 최대 10건/호출, "1분당 최대 50번"(README) vs "1시간 30회 이상 호출 시 24시간 정지, 3회 정지 시 계정 정지"(README 주의사항) — 상충, 어느 쪽이 적용되는지 미확정.
+      응답: keyword·rank·isRocket·isFreeShipping·productId·productImage·productName·productPrice·productUrl (categoryName 은 검색 응답에 없음).
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://www.pkgstats.com/pkg:n8n-nodes-coupang-partners
+      - https://raw.githubusercontent.com/NomaDamas/k-skill/main/docs/features/coupang-product-search.md
+      - https://www.digitalmarketer.co.kr/insights/coupang-robots-txt-partners-strategy
+    note: >
+      공식 문서(partners.coupang.com/#help/open-api)를 읽지 못해 3자 README 기준. 호출당 10건이라 분포(min/median/max)가 아니라 상위 10개 등록가만 얻음. 제휴 목적 외 사용이 약관상 허용되는지가 관건.
+    priority: 3
+
+  - platform: coupang_web
+    name: 쿠팡 웹 검색 결과 크롤링
+    channel: open_market
+    access: crawler
+    price_type: listing
+    condition: [new]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: prohibited
+    legal_notes: >
+      robots.txt User-agent: * → Disallow: / , OpenAI 봇 3종 Disallow: / (2차 자료, 2026-10-04 기준). 이용약관 원문은 접근 실패로 미확인.
+    limits: 해당 없음
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://www.digitalmarketer.co.kr/insights/coupang-robots-txt-partners-strategy
+    note: robots 전체 차단이므로 후보에서 제외. 공식 API(coupang_partners) 로 대체.
+    priority: 0
+
+  - platform: naver_shopping_web
+    name: 네이버 쇼핑(네이버플러스 스토어) 검색 결과 크롤링
+    channel: price_comparison
+    access: crawler
+    price_type: listing
+    condition: [new, used]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: prohibited
+    legal_notes: >
+      shopping.naver.com robots.txt — AI 봇 10종 전체 제한, Googlebot 도 Disallow: / 와 일부 Allow 병기(2차). 네이버플러스 스토어 robots 에 "AI 크롤링 및 검색 증강 생성(RAG) 목적 접근 금지" 명시(바이라인 2026-04-27, 2차).
+      API 약관 7.3⑫ 자동화 접속 금지.
+    limits: 해당 없음
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://www.digitalmarketer.co.kr/insights/coupang-robots-txt-partners-strategy
+      - https://byline.network/2026/04/27_1928774/
+    note: 후보 제외. naver_apihub_shop 으로 대체.
+    priority: 0
+
+  - platform: st11_openapi
+    name: 11번가 OpenAPI
+    channel: open_market
+    access: api
+    price_type: listing
+    condition: [new]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: >
+      2026-06-30 인증키 유효기간 180일 정책 적용 대상이 "11번가 OpenAPI 이용 중인 모든 셀러"(셀러나우 2026-07-06, 2차) — 셀러(입점사) 대상 상품·주문·재고 연동 API 로 운영되는 정황.
+      일반 개발자용 상품검색 API 의 2026년 제공 여부·약관은 미확인. robots.txt 는 OAI-SearchBot·Claude-SearchBot·Google-Extended 를 허용 그룹에 둠(2차).
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://sellernow.co.kr/post/507561
+      - https://www.digitalmarketer.co.kr/insights/coupang-robots-txt-partners-strategy
+    note: 셀러 계정으로 입점하면 자사 상품 연동은 가능하나 타사 시세 조회 API 인지는 별개. openapi.11st.co.kr 문서 직접 확인 필요.
+    priority: 4
+
+  - platform: gmarket_auction
+    name: 지마켓·옥션 (ESM)
+    channel: open_market
+    access: crawler
+    price_type: listing
+    condition: [new]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: >
+      공개 상품검색 API 없음(기억 기준, 오늘 미확인). robots.txt 에 GPTBot 허용(2023년경, 바이라인 2차) 외 규칙 미확인. 이용약관 미열람.
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://byline.network/2026/04/27_1928774/
+    note: 약관·robots 직접 확인 전엔 후보 보류.
+    priority: 5
+
+  - platform: danawa
+    name: 다나와 가격비교
+    channel: price_comparison
+    access: crawler
+    price_type: listing
+    condition: [new]
+    covers: [DE, HO, LV, HB]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: >
+      공식 오픈 API 없음(검색 결과에 공식 API 문서 없음, Apify 3자 스크레이퍼만 존재 — 허가의 증거 아님). 이용약관·robots.txt 미열람.
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://apify.com/ai94_jin/apify-actors-1
+    note: 가전·디지털·공구 등 모델명이 있는 품목에 최저가 이력이 있어 유용하나, 약관 확인 전 보류. 에누리(아래)와 같은 영리목적 복제 금지 조항이 있을 가능성 높음.
+    priority: 5
+
+  - platform: enuri
+    name: 에누리 가격비교
+    channel: price_comparison
+    access: crawler
+    price_type: listing
+    condition: [new]
+    covers: [DE, HO, LV, HB]
+    sold_count: false
+    tos_status: prohibited
+    legal_notes: >
+      에누리 이용약관(2026-08-06 시행) 제12조③ "이용자는 회사의 서비스를 이용함으로써 얻은 정보를 회사의 사전 승낙 없이 복제, 송신, 출판, 배포, 방송 기타 방법에 의하여
+      영리목적으로 이용하거나 제3자에게 이용하게 하여서는 안됩니다." 제10조(사) "회사의 서비스를 이용자의 영리 목적으로 활용하는 행위" 금지. 크롤링·API 조항은 없음.
+    limits: 해당 없음
+    verified: true
+    verified_on: "2026-11-24"
+    evidence:
+      - https://enuri.com/etc/provision.jsp
+    note: 사전 승낙(제휴) 없이는 영리 목적 수집·저장 불가 → 제외. 제휴 문의는 별도.
+    priority: 0
+
+  - platform: bunjang
+    name: 번개장터
+    channel: secondhand_app
+    access: crawler
+    price_type: asking
+    condition: [used, new]
+    covers: [FA, DE, HO, HB, BT]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: >
+      공개 API 없음(기억 기준). 이용약관·robots.txt 미열람. Apify 3자 스크레이퍼 존재(허가 증거 아님).
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://apify.com/kdatafactory/bunjang-scraper
+    note: 중고(used) 시세의 주 후보이나 약관 확인 전 보류. B/C 등급 상품의 비교 시세가 여기서만 나오므로 제휴·약관 확인 가치가 높음.
+    priority: 4
+
+  - platform: daangn
+    name: 당근
+    channel: secondhand_app
+    access: crawler
+    price_type: asking
+    condition: [used]
+    covers: [FA, DE, HO, HB]
+    sold_count: false
+    tos_status: prohibited
+    legal_notes: >
+      robots.txt 에 40개 이상 봇을 개별 명시해 사실상 전체 차단(바이라인 2026-04-27, 2차). 공개 API 없음.
+    limits: 해당 없음
+    verified: false
+    verified_on: "2026-11-24"
+    evidence:
+      - https://byline.network/2026/04/27_1928774/
+    note: 지역 기반·개인 간 거래라 시세 대표성도 낮음. 제외.
+    priority: 0
+
+  - platform: joongna
+    name: 중고나라
+    channel: secondhand_app
+    access: crawler
+    price_type: asking
+    condition: [used, new]
+    covers: [FA, DE, HO, HB, BT]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: 이용약관·robots.txt 미열람. 공개 API 없음(기억 기준).
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence: []
+    note: 번개장터와 같은 판단. 직접 확인 필요.
+    priority: 5
+
+  - platform: domeggook
+    name: 도매꾹 (B2B 도매)
+    channel: b2b_wholesale
+    access: api
+    price_type: listing
+    condition: [new]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: unknown
+    legal_notes: 공급사·판매자용 오픈 API 가 있는 것으로 기억하나 오늘 미확인. 약관 미열람.
+    limits: 미확인
+    verified: false
+    verified_on: "2026-11-24"
+    evidence: []
+    note: b2b_wholesale 채널 시세(도매가)의 유일한 후보. 매입가 역산(M12)과 직결되므로 D017 이후 별도 확인.
+    priority: 4
+
+  - platform: gyeongbuk_price
+    name: 경상북도 밥상물가 정보조회 (공공데이터포털)
+    channel: offline_store
+    access: api
+    price_type: sale
+    condition: [new]
+    covers: [FD]
+    sold_count: false
+    tos_status: clear
+    legal_notes: 이용허락범위 "제한 없음", 무료. 활용신청 자동승인(개발·운영). 개발계정 트래픽 10,000.
+    limits: REST/JSON, "실시간" 갱신 표기, 경북 평균 + 22개 시·군.
+    verified: true
+    verified_on: "2026-11-24"
+    evidence:
+      - https://www.data.go.kr/data/15143783/openapi.do
+    note: 지역·식료품 한정이라 참가격의 보조. 후보 순위 낮음.
+    priority: 5
+
+  - platform: manual_search
+    name: 담당자 수기 검색 (현행 운영 방식)
+    channel: price_comparison
+    access: manual
+    price_type: listing
+    condition: [new, used]
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    sold_count: false
+    tos_status: clear
+    legal_notes: 사람이 사이트를 열람하는 통상 이용. 입력 폼으로 market_price 레코드를 남기는 방식.
+    limits: 건당 수 분, 하루 수십 건.
+    verified: true
+    verified_on: "2026-11-24"
+    evidence: []
+    note: >
+      11-10 질문 3(현행 시세 조회 사이트·보는 값) 미답. 자동 수집 소스가 약관으로 막히는 동안 파일럿 실데이터의 시세 열을 채울 현실적 대안이자, 자동 수집 결과의 정답 대조군.
+    priority: 2

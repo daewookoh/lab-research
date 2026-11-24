@@ -1,0 +1,63 @@
+소스 목록 v0.1 (2026-11-24, draft): 15개 — 검증 오류 0건
+
+tos_status 별: {'clear': 3, 'conditional': 2, 'prohibited': 4, 'unknown': 6}
+access 별    : {'file': 1, 'api': 5, 'crawler': 8, 'manual': 1}
+channel 별   : {'offline_store': 2, 'price_comparison': 5, 'open_market': 4, 'secondhand_app': 3, 'b2b_wholesale': 1}
+verified     : 5 / 15
+소스 없는 채널: ['live_commerce', 'own_online', 'social_market']
+
+소분류 커버리지 (소분류 30개 기준, 소스 수: clear/conditional/unknown/prohibited)
+코드         소분류                   신품 c/c/u/p    중고 c/c/u/p
+FD-PR-SNK  과자·스낵                 3/2/3/2       1/1/0/1
+FD-PR-BEV  음료·커피·차               3/2/3/2       1/1/0/1
+FD-PR-RTE  즉석·가공식품(면·소스·조미료)     3/2/3/2       1/1/0/1
+FD-HF-SUP  건강기능식품                3/2/3/2       1/1/0/1
+LV-CL-DET  세제·세탁·청소용품            2/2/4/3       1/1/0/1
+LV-CL-HYG  위생·일회용품               2/2/4/3       1/1/0/1
+LV-KT-COK  조리도구·식기               2/2/4/3       1/1/0/1
+LV-KT-STO  밀폐용기·수납·정리용품          2/2/4/3       1/1/0/1
+BT-CO-SKN  스킨케어                  2/2/5/2       1/1/2/1
+BT-CO-MKP  메이크업                  2/2/5/2       1/1/2/1
+BT-CO-HBD  헤어·바디·구강              2/2/5/2       1/1/2/1
+BT-HC-MED  의료소모품·건강보조기구          2/2/5/2       1/1/2/1
+FA-AP-WOM  여성의류                  1/2/5/2       1/1/2/2
+FA-AP-MEN  남성의류                  1/2/5/2       1/1/2/2
+FA-AP-KID  아동·유아의류               1/2/5/2       1/1/2/2
+FA-AC-SHO  신발                    1/2/5/2       1/1/2/2
+FA-AC-BAG  가방·지갑                 1/2/5/2       1/1/2/2
+FA-AC-ETC  패션소품                  1/2/5/2       1/1/2/2
+DE-HA-SML  소형생활가전                1/2/6/3       1/1/2/2
+DE-HA-SEA  계절가전                  1/2/6/3       1/1/2/2
+DE-DG-ACC  디지털 액세서리(모바일·PC)      1/2/6/3       1/1/2/2
+DE-DG-AUD  음향기기                  1/2/6/3       1/1/2/2
+HO-TX-BED  침구·패브릭                1/2/6/3       1/1/2/2
+HO-TX-DEC  인테리어소품·조명             1/2/6/3       1/1/2/2
+HO-OF-STA  문구·사무용품               1/2/6/3       1/1/2/2
+HO-OF-DIY  공구·DIY·철물             1/2/6/3       1/1/2/2
+HB-KD-BAB  유아용품                  2/2/6/3       1/1/2/2
+HB-KD-TOY  완구·취미                 2/2/6/3       1/1/2/2
+HB-PL-PET  반려동물용품                2/2/6/3       1/1/2/2
+HB-PL-OUT  스포츠·아웃도어              2/2/6/3       1/1/2/2
+
+clear 만                      소분류 커버: 신품 30/30  중고 30/30 | 자동(api·file)만: 신품 16/30  중고  0/30
+clear+conditional            소분류 커버: 신품 30/30  중고 30/30 | 자동(api·file)만: 신품 30/30  중고 30/30
+clear+conditional+unknown    소분류 커버: 신품 30/30  중고 30/30 | 자동(api·file)만: 신품 30/30  중고 30/30
+
+D019 후보 순위 (score_source, 가정):
+     7.7  price_go_kr          clear        file     offline_store     covers=4 priority(수기)=1
+     7.1  manual_search        clear        manual   price_comparison  covers=7 priority(수기)=2
+     6.8  gyeongbuk_price      clear        api      offline_store     covers=1 priority(수기)=5
+     6.6  naver_apihub_shop    conditional  api      price_comparison  covers=7 priority(수기)=2
+     5.6  coupang_partners     conditional  api      open_market       covers=7 priority(수기)=3
+     4.6  st11_openapi         unknown      api      open_market       covers=7 priority(수기)=4
+     4.6  domeggook            unknown      api      b2b_wholesale     covers=7 priority(수기)=4
+     2.6  gmarket_auction      unknown      crawler  open_market       covers=7 priority(수기)=5
+     2.0  bunjang              unknown      crawler  secondhand_app    covers=5 priority(수기)=4
+     2.0  joongna              unknown      crawler  secondhand_app    covers=5 priority(수기)=5
+     1.7  danawa               unknown      crawler  price_comparison  covers=4 priority(수기)=5
+    -inf  coupang_web          prohibited   crawler  open_market       covers=7 priority(수기)=0
+    -inf  naver_shopping_web   prohibited   crawler  price_comparison  covers=7 priority(수기)=0
+    -inf  enuri                prohibited   crawler  price_comparison  covers=4 priority(수기)=0
+    -inf  daangn               prohibited   crawler  secondhand_app    covers=4 priority(수기)=0
+
+source.platform enum 제안: ['bunjang', 'coupang_partners', 'danawa', 'domeggook', 'gmarket_auction', 'gyeongbuk_price', 'joongna', 'manual_search', 'naver_apihub_shop', 'price_go_kr', 'st11_openapi', 'other']
