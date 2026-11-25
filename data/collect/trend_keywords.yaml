@@ -1,0 +1,111 @@
+# 소분류 30개 → 검색 트렌드 키워드 그룹 매핑 v0.1 — D017 (2026-11-25) / AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 용도: 네이버 데이터랩 검색어 트렌드(naver_datalab_search) 호출의 keywordGroups 를 만든다.
+#   - groupName = 소분류 코드, keywords = categories.yaml examples 에서 수량·규격을 뗀 검색어(≤20개).
+#   - anchor: 모든 호출에 같이 넣는 기준 키워드 그룹. ratio 가 "요청 안의 최대값 = 100" 인 상대지수라
+#     호출이 다르면 비교가 안 되므로, 앵커의 ratio 로 나눠 "앵커 대비 배수" 로 재척도한다(src/collect/trend_naver.py).
+#     앵커는 (1) 어느 소분류에도 속하지 않고 (2) 시즌성이 약하며 (3) 품목 키워드와 검색량 자릿수가 비슷한 것을 고른다 — "생수" 는 가정이며 샘플 호출 후 교체 가능.
+#   - naver_shop_cat_id: 쇼핑인사이트(naver_shopping_insight_*) 용 네이버쇼핑 카테고리 코드. 공식 문서가 "네이버쇼핑 URL 의 cat_id 로 확인" 이라고만
+#     안내하고 코드표 API 가 없어 전부 null — 연구책임자(또는 키 발급 후 담당자)가 화면에서 받아 적어야 한다. 예시 코드 50000000(패션의류)·50000002(화장품/미용)는 공식 문서 예시.
+#
+# 주의: 키워드 선정은 examples 어휘 기준의 가정이다. 실제 소상공인 재고 품목명(실데이터·과제2 입력)이 오면 다시 뽑는다.
+
+version: "0.1"
+defined_on: "2026-11-25"
+status: draft
+
+anchor:
+  groupName: ANCHOR
+  keywords: [생수]
+
+groups:
+  - code: FD-PR-SNK
+    keywords: [감자칩, 쿠키, 젤리, 초콜릿 선물세트, 견과류]
+    naver_shop_cat_id: null
+  - code: FD-PR-BEV
+    keywords: [캔커피, 스틱커피, 티백, 탄산수, 과즙음료]
+    naver_shop_cat_id: null
+  - code: FD-PR-RTE
+    keywords: [컵라면, 즉석밥, 레토르트 카레, 파스타 소스, 참기름]
+    naver_shop_cat_id: null
+  - code: FD-HF-SUP
+    keywords: [비타민C, 오메가3, 홍삼 스틱, 프로바이오틱스, 콜라겐]
+    naver_shop_cat_id: null
+  - code: LV-CL-DET
+    keywords: [액체세제, 섬유유연제, 주방세제, 청소포, 곰팡이 제거제]
+    naver_shop_cat_id: null
+  - code: LV-CL-HYG
+    keywords: [물티슈, KF94 마스크, 두루마리 휴지, 종이컵, 지퍼백]
+    naver_shop_cat_id: null
+  - code: LV-KT-COK
+    keywords: [프라이팬, 냄비, 도마, 접시 세트, 스테인리스 컵]
+    naver_shop_cat_id: null
+  - code: LV-KT-STO
+    keywords: [밀폐용기, 리빙박스, 옷걸이, 신발정리대, 서랍정리함]
+    naver_shop_cat_id: null
+  - code: BT-CO-SKN
+    keywords: [수분크림, 토너, 에센스, 마스크팩, 선크림]
+    naver_shop_cat_id: null
+  - code: BT-CO-MKP
+    keywords: [립스틱, 쿠션 파운데이션, 아이섀도, 마스카라, 틴트]
+    naver_shop_cat_id: null
+  - code: BT-CO-HBD
+    keywords: [샴푸, 바디워시, 핸드크림, 치약, 염색약]
+    naver_shop_cat_id: null
+  - code: BT-HC-MED
+    keywords: [체온계, 혈압계, 밴드, 손소독제, 파스]
+    naver_shop_cat_id: null
+  - code: FA-AP-WOM
+    keywords: [블라우스, 니트, 원피스, 여성 패딩, 레깅스]
+    naver_shop_cat_id: null
+  - code: FA-AP-MEN
+    keywords: [남자 티셔츠, 남자 셔츠, 슬랙스, 점퍼, 기능성 내의]
+    naver_shop_cat_id: null
+  - code: FA-AP-KID
+    keywords: [아동 티셔츠, 유아 내복, 아동 패딩, 아동 수영복, 바디수트]
+    naver_shop_cat_id: null
+  - code: FA-AC-SHO
+    keywords: [운동화, 슬리퍼, 부츠, 샌들, 아동 운동화]
+    naver_shop_cat_id: null
+  - code: FA-AC-BAG
+    keywords: [백팩, 에코백, 크로스백, 지갑, 캐리어]
+    naver_shop_cat_id: null
+  - code: FA-AC-ETC
+    keywords: [양말, 모자, 머플러, 벨트, 패션시계]
+    naver_shop_cat_id: null
+  - code: DE-HA-SML
+    keywords: [전기포트, 토스터, 믹서기, 무선청소기, 전기그릴]
+    naver_shop_cat_id: null
+  - code: DE-HA-SEA
+    keywords: [선풍기, 서큘레이터, 전기히터, 가습기, 전기장판]
+    naver_shop_cat_id: null
+  - code: DE-DG-ACC
+    keywords: [휴대폰 케이스, 고속충전기, USB-C 케이블, 마우스, 키보드]
+    naver_shop_cat_id: null
+  - code: DE-DG-AUD
+    keywords: [무선 이어폰, 블루투스 스피커, 헤드셋, 유선 이어폰, 마이크]
+    naver_shop_cat_id: null
+  - code: HO-TX-BED
+    keywords: [차렵이불, 베개커버, 극세사 담요, 커튼, 러그]
+    naver_shop_cat_id: null
+  - code: HO-TX-DEC
+    keywords: [LED 무드등, 액자, 조화, 디퓨저, 벽시계]
+    naver_shop_cat_id: null
+  - code: HO-OF-STA
+    keywords: [다이어리, 볼펜, A4 복사용지, 파일 바인더, 스티커]
+    naver_shop_cat_id: null
+  - code: HO-OF-DIY
+    keywords: [전동드릴, 공구세트, 접착제, 줄자, 방충망 보수테이프]
+    naver_shop_cat_id: null
+  - code: HB-KD-BAB
+    keywords: [기저귀, 유아 물티슈, 젖병, 이유식 용기, 아기띠]
+    naver_shop_cat_id: null
+  - code: HB-KD-TOY
+    keywords: [블록 세트, 보드게임, 인형, 퍼즐, 피규어]
+    naver_shop_cat_id: null
+  - code: HB-PL-PET
+    keywords: [강아지 사료, 고양이 간식, 배변패드, 강아지 장난감, 하네스]
+    naver_shop_cat_id: null
+  - code: HB-PL-OUT
+    keywords: [요가매트, 캠핑의자, 텐트, 물놀이 튜브, 등산스틱]
+    naver_shop_cat_id: null

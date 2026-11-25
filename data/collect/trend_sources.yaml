@@ -1,0 +1,245 @@
+# 검색 트렌드 데이터 소스 목록 v0.1 — D017 (2026-11-25) / AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 목적: market_price.json 의 search_index(0~100, "네이버 데이터랩식 상대 지수", D017 전까지 자리만 둠)를 어떤 소스로
+#       채울지, 그 소스를 자동 수집해 저장하는 것이 약관상 허용되는지, 소분류 30개 중 몇 개를 덮는지를 정한다.
+# 각 항목의 evidence 는 2026-11-25 에 실제로 읽은 페이지만 적는다. 읽지 못한 것은 verified: false 로 두고 추정임을 note 에 쓴다.
+# price_sources.yaml(D016) 과 같은 규칙: 2차 자료는 "(2차)", 기억에 의존한 것은 "기억 기준, 미확인".
+#
+# 필드
+#   platform      : 식별자(snake_case, ≤50자). market_price.search_index 의 출처를 notes 에 적을 때 쓰는 이름
+#   signal        : relative_index(기간 내 최대=100 상대지수) | click_index(쇼핑 클릭 상대지수) | absolute_count(월간 검색수 절대치) | sales_amount(거래액)
+#   unit          : keyword(검색어 단위) | category(쇼핑 카테고리 단위) | product_group(통계 상품군 단위)
+#   granularity   : [date, week, month] 중 제공되는 것
+#   earliest      : 조회 가능 시작일
+#   access        : api | file | crawler | manual
+#   covers        : 대분류 코드(FD·LV·BT·FA·DE·HO·HB) 중 이 소스로 수요 신호를 만들 수 있다고 보는 것
+#   tos_status    : clear | conditional | prohibited | unknown  (price_sources.yaml 과 같은 정의)
+#   legal_notes   : 약관·정책 근거(조항 번호·문구 요지)
+#   limits        : 호출 한도·비용·요청 제약
+#   verified      : 오늘 1차 자료(공식 문서·약관)를 직접 읽었는지
+#   evidence      : 읽은 URL
+#   priority      : search_index 소스 후보 우선순위 (1 높음 ~ 5 낮음, 0 = 후보 아님)
+
+version: "0.1"
+defined_on: "2026-11-25"
+status: draft
+
+sources:
+
+  - platform: naver_datalab_search
+    name: 네이버 API HUB 데이터랩 검색어 트렌드 (POST /search-trend/v1/search)
+    signal: relative_index
+    unit: keyword
+    granularity: [date, week, month]
+    earliest: "2016-01-01"
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: conditional
+    legal_notes: >
+      D016 에서 읽은 NAVER API 서비스 이용약관(API HUB, 2026-06-24 판) 이 그대로 적용된다 — 7.3③ API 제공 정보의 허용 범위 밖
+      "복제, 저장(캐시 행위 포함), 가공, 배포" 금지, "각 API 의 제공 취지나 목적에 맞지 않게 API 제공 정보를 저장하거나 이용하는 행위" 금지.
+      검색어 트렌드 문서 자체에는 저장·캐시·용도 조항이 없고(오늘 확인), 데이터랩 전용 특약이 있는지는 미확인.
+      → ratio 를 상품·일자별 search_index 레코드로 축적하는 우리 용도는 시세 저장과 같은 쟁점. 네이버 클라우드 서면 확인 전 conditional.
+    limits: >
+      요청: startDate(2016-01-01 이후)·endDate·timeUnit(date|week|month) 필수, keywordGroups 최대 5쌍, 쌍당 keywords 최대 20개,
+      device(pc|mo)·gender(m|f)·ages("1"~"11", 11구간) 선택. 응답 ratio = "구간별 결과에서 가장 큰 값을 100으로 설정한 상댓값" —
+      최대 100 이 요청 전체 기준인지 그룹별인지 문서에 명시 없음(예시 응답은 요청 전체 기준으로 읽힘, 샘플 호출로 확인 필요).
+      한도: 상태 429 "하루 허용량 초과" 라고만 적혀 있고 숫자는 문서에 없음. D016 가이드(apihub-use) 기준 데이터랩 월 50,000건(오늘 재확인 실패 — 승인 제약).
+      요금 페이지(ncloud.com/product/applicationService/NAVER API HUB) 미열람. 인증 X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY.
+      날짜 범위 상한·일 단위 조회 시 최대 기간은 문서에 없음.
+    verified: true
+    verified_on: "2026-11-25"
+    evidence:
+      - https://api.ncloud-docs.com/docs/naver-api-hub-search-trend.md
+      - https://api.ncloud-docs.com/docs/naver-api-hub-search-trend-examples
+      - https://api.ncloud-docs.com/docs/naver-api-hub-overview
+    note: >
+      search_index 1순위. 상대지수라 호출 간 비교 불가 → 모든 호출에 같은 앵커 키워드 그룹을 넣어 앵커 기준으로 재척도(src/collect/trend_naver.py).
+      소분류 30개를 키워드 그룹으로 묶으면 호출당 4 소분류 + 앵커 1 = 8 호출/회차. 일간 지수 월 1회 갱신이면 월 8건, 주 1회면 32건 — 한도 걱정 없음.
+      문서 갱신일 2026-11-24. 샘플 호출은 API HUB 키가 없어 미수행(blocked).
+    priority: 1
+
+  - platform: naver_shopping_insight_cat
+    name: 네이버 API HUB 데이터랩 쇼핑인사이트 분야별 트렌드 (POST /shopping/v1/categories)
+    signal: click_index
+    unit: category
+    granularity: [date, week, month]
+    earliest: "2017-08-01"
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: conditional
+    legal_notes: >
+      naver_datalab_search 와 같은 약관(7.3③ 저장·가공 금지). 쇼핑인사이트 문서에도 저장·용도 조항 없음(오늘 확인).
+    limits: >
+      category 최대 3쌍(name + param[cat_id 배열]), startDate 2017-08-01 이후, timeUnit date|week|month, device·gender·ages(10~60, 6구간) 선택.
+      ratio = "구간별 클릭량의 상대적 비율 - 구간별 결과에서 가장 큰 값을 100으로 설정한 상댓값". cat_id 는 "네이버쇼핑에서 카테고리 선택 시 URL 의 cat_id 파라미터" 로만 안내 — 코드표 API 없음.
+      한도 숫자 문서에 없음(429 하루 허용량 초과).
+    verified: true
+    verified_on: "2026-11-25"
+    evidence:
+      - https://api.ncloud-docs.com/docs/naver-api-hub-shopping-insight-categories.md
+      - https://api.ncloud-docs.com/docs/naver-api-hub-shopping-insight-examples.md
+    note: >
+      검색이 아니라 네이버쇼핑 안의 "클릭" 이라 구매 의도에 더 가깝다. 단위가 네이버쇼핑 카테고리라 우리 소분류 30개 ↔ cat_id 대응표가 필요하고,
+      cat_id 는 네이버쇼핑 화면에서 사람이 하나씩 받아 적어야 한다(trend_keywords.yaml 의 naver_shop_cat_id 가 전부 null 인 이유). 호출당 3개라 30 소분류 = 10 호출(앵커 포함 15 호출).
+      소분류 단위 시즌 지수(D027)의 후보.
+    priority: 2
+
+  - platform: naver_shopping_insight_kw
+    name: 네이버 API HUB 데이터랩 쇼핑인사이트 키워드별 트렌드 (POST /shopping/v1/category/keywords)
+    signal: click_index
+    unit: keyword
+    granularity: [date, week, month]
+    earliest: "2017-08-01"
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: conditional
+    legal_notes: >
+      naver_datalab_search 와 같은 약관.
+    limits: >
+      category(단일 cat_id 문자열) 필수, keyword 최대 5쌍, 쌍당 param 은 "1개만 설정 가능", 그 외 분야별과 동일.
+      예시 응답에 날짜가 빠진 구간(2023-11-04 없음)이 있어 결측 구간은 0 이 아니라 "없음" 으로 다뤄야 함.
+    verified: true
+    verified_on: "2026-11-25"
+    evidence:
+      - https://api.ncloud-docs.com/docs/naver-api-hub-shopping-insight-keywords.md
+    note: >
+      상품명 단위(브랜드+품명) 지수가 필요할 때(유사상품 검색 M7 이후). 키워드당 1개 검색어라 동의어 묶기가 안 되고, cat_id 선행 필요. 지금은 3순위.
+    priority: 3
+
+  - platform: naver_datalab_web
+    name: 네이버 데이터랩 웹(datalab.naver.com) 화면 조회·다운로드
+    signal: relative_index
+    unit: keyword
+    granularity: [date, week, month]
+    earliest: "2016-01-01"
+    access: manual
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: unknown
+    legal_notes: >
+      datalab.naver.com 이용약관·robots.txt 미열람(기억 기준: 화면에 다운로드 버튼이 있음, 미확인). 네이버 서비스 약관의 자동화 접속 금지가 적용될 것으로 보여 크롤링은 제외, 수기 다운로드만 후보.
+    limits: >
+      화면 조회 1회당 주제어 5개(기억 기준, API 와 같은 제약). 자동화 불가.
+    verified: false
+    evidence: []
+    note: >
+      API 키 발급 전 또는 서면 확인 전에 "저장하지 않고 눈으로 보는" 용도. 샘플 1~2개 소분류를 화면에서 받아 API 응답 형식·앵커 정규화를 검증하는 데 쓸 수 있다(연구책임자 수기).
+    priority: 4
+
+  - platform: naver_searchad_keywordstool
+    name: 네이버 검색광고 API 키워드도구 (/keywordstool, 월간 검색수 절대치)
+    signal: absolute_count
+    unit: keyword
+    granularity: [month]
+    earliest: null
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: unknown
+    legal_notes: >
+      검색광고 API 약관 미열람. 광고주 계정(사업자)·API 라이선스 발급이 전제(기억 기준, 미확인). 공식 이슈 답변(#1060): Open API 는 QC(검색수)·클릭률·depth 를 제공하고 타게팅 정보는 미제공.
+      광고 집행 목적 외(연구용 저장) 사용 허용 여부가 핵심 쟁점이며 미확인.
+    limits: >
+      기억 기준(미확인): 응답 keywordList[].monthlyPcQcCnt·monthlyMobileQcCnt(최근 1개월, 10 미만은 "< 10" 문자열), 호출당 hintKeywords 최대 5개, 연관 키워드 포함 반환. 일 한도 미확인.
+    verified: false
+    verified_on: "2026-11-25"
+    evidence:
+      - https://github.com/naver/searchad-apidoc/issues/1060
+    note: >
+      유일한 "절대치" 소스. 데이터랩 상대지수를 절대 검색수로 바꾸는 척도(앵커의 월간 검색수)로 쓰면 소분류 간 수요 크기 비교가 가능해진다.
+      최근 1개월만 주므로 시계열은 매월 수집해 쌓아야 한다. 검색광고 계정 보유 여부를 연구책임자에게 질문.
+    priority: 3
+
+  - platform: google_trends_api_alpha
+    name: Google Trends API (alpha, 2025-07-24 발표)
+    signal: relative_index
+    unit: keyword
+    granularity: [date, week, month]
+    earliest: null
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: conditional
+    legal_notes: >
+      알파 테스터 소수에게만 제공("very limited number of testers"), 신청제. 요금·쿼터·약관 미공개(블로그 요약 기준). production-ready 아님.
+    limits: >
+      최근 1,800일 롤링(약 5년), 2일 전까지, daily/weekly/monthly/yearly 집계, ISO 3166-2 지역·하위지역. 척도는 웹과 달리 "요청 간 일관된 scaling" — 호출 간 비교·병합 가능(공식 블로그).
+    verified: true
+    verified_on: "2026-11-25"
+    evidence:
+      - https://developers.google.com/search/blog/2025/07/trends-api
+    note: >
+      한국 검색 점유율이 낮아 소상공인 재고 품목 수요 신호로는 보조. 그러나 "요청 간 일관된 척도" 는 네이버에 없는 장점이라 알파 신청은 비용이 없다. 신청 여부 질문.
+    priority: 4
+
+  - platform: google_trends_unofficial
+    name: Google Trends 비공식 접근 (pytrends, /trends/api/explore 직접 호출, 3자 스크레이퍼)
+    signal: relative_index
+    unit: keyword
+    granularity: [date, week, month]
+    earliest: null
+    access: crawler
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: prohibited
+    legal_notes: >
+      pytrends 는 2025-04 아카이브(2차, dev.to 글 — 글쓴이는 유료 스크레이퍼 판매자). 내부 엔드포인트 직접 호출은 IP 단위 429 차단 대상이고, 구글 약관의 자동화 접근 제한(기억 기준)에 걸린다.
+      3자 스크레이퍼 존재는 허가의 근거가 아님(D016 원칙).
+    limits: "해당 없음"
+    verified: false
+    verified_on: "2026-11-25"
+    evidence:
+      - https://dev.to/esteban_ortega/pytrends-is-dead-heres-how-to-get-google-trends-data-in-2026-1a18
+    note: 후보 아님.
+    priority: 0
+
+  - platform: kosis_online_shopping
+    name: 통계청 온라인쇼핑동향조사 상품군별 거래액 (KOSIS)
+    signal: sales_amount
+    unit: product_group
+    granularity: [month]
+    earliest: null
+    access: api
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: unknown
+    legal_notes: >
+      공공데이터(국가승인통계)라 저장·가공 제한이 없을 것으로 보지만 KOSIS 오픈API 이용약관·인증키 조건을 오늘 읽지 못해 unknown
+      (기억 기준: 회원가입·인증키 발급 후 이용). 확인되면 clear 로 바꿀 유일한 후보.
+    limits: >
+      월간, 발표 시차 약 1개월, 상품군 약 22개(가전·전자·통신기기, 의복, 음·식료품, 생활용품, 화장품, 아동·유아용품, 스포츠·레저용품, 애완용품, 사무·문구 등 — 기억 기준). 키워드·품목 단위 아님.
+    verified: false
+    evidence: []
+    note: >
+      소분류 30개 ↔ 상품군 대응이 대분류 수준에서만 되므로 search_index 가 아니라 "거시 수요·시즌 지수"(D027) 의 보조 입력. 공공이라 약관 쟁점이 없는 유일한 자동 소스.
+    priority: 3
+
+  - platform: marketplace_popular_keywords
+    name: 오픈마켓·네이버쇼핑 인기 검색어/베스트 순위 화면 크롤링
+    signal: relative_index
+    unit: keyword
+    granularity: [date]
+    earliest: null
+    access: crawler
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: prohibited
+    legal_notes: >
+      D016 과 동일 근거 — 쿠팡·네이버쇼핑 robots.txt 전면/AI 봇 차단(2차), 네이버 약관 7.3⑫ 자동화 접속 금지.
+    limits: "해당 없음"
+    verified: false
+    evidence: []
+    note: 후보 아님. D016 prohibited 와 같은 플랫폼.
+    priority: 0
+
+  - platform: third_party_keyword_tools
+    name: 3자 키워드 분석 서비스 (블랙키위·키워드마스터·판다랭크 등)
+    signal: absolute_count
+    unit: keyword
+    granularity: [month]
+    earliest: null
+    access: manual
+    covers: [FD, LV, BT, FA, DE, HO, HB]
+    tos_status: unknown
+    legal_notes: >
+      각 서비스 약관 미열람. 대부분 네이버 검색광고 키워드도구 데이터를 재가공한 것(기억 기준) — 원천이 같으므로 직접 소스(naver_searchad_keywordstool)가 낫다.
+    limits: 유료 플랜·화면 조회 위주, 자동화 API 는 서비스별 상이(미확인)
+    verified: false
+    evidence: []
+    note: 수기 참고용. 자동 수집 후보 아님.
+    priority: 5

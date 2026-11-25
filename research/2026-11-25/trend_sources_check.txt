@@ -1,0 +1,28 @@
+트렌드 소스 목록 v0.1 (2026-11-25, draft): 10개 — 검증 오류 0건
+키워드 매핑 v0.1: 그룹 30개·키워드 150개·앵커 ['생수'] — 검증 오류 0건
+쇼핑인사이트 cat_id 채워진 소분류: 0/30
+
+tos_status 별: {'conditional': 4, 'unknown': 4, 'prohibited': 2}
+access 별    : {'api': 6, 'manual': 2, 'crawler': 2}
+signal 별    : {'relative_index': 5, 'click_index': 2, 'absolute_count': 2, 'sales_amount': 1}
+unit 별      : {'keyword': 8, 'category': 1, 'product_group': 1}
+verified     : 4 / 10
+
+clear 만                      소분류 커버:  0/30 | 자동(api·file)만:  0/30
+clear+conditional            소분류 커버: 30/30 | 자동(api·file)만: 30/30
+clear+conditional+unknown    소분류 커버: 30/30 | 자동(api·file)만: 30/30
+키워드 단위·자동 소스 [clear]: 없음
+키워드 단위·자동 소스 [conditional]: ['naver_datalab_search', 'naver_shopping_insight_kw', 'google_trends_api_alpha']
+키워드 단위·자동 소스 [unknown]: ['naver_searchad_keywordstool']
+
+search_index 소스 후보 순위 (score_source, 가정):
+     6.0  naver_datalab_search           conditional  api      relative_index  keyword        priority(수기)=1
+     6.0  naver_shopping_insight_kw      conditional  api      click_index     keyword        priority(수기)=3
+     6.0  google_trends_api_alpha        conditional  api      relative_index  keyword        priority(수기)=4
+     5.5  naver_shopping_insight_cat     conditional  api      click_index     category       priority(수기)=2
+     3.5  naver_searchad_keywordstool    unknown      api      absolute_count  keyword        priority(수기)=3
+     2.5  naver_datalab_web              unknown      manual   relative_index  keyword        priority(수기)=4
+     2.0  kosis_online_shopping          unknown      api      sales_amount    product_group  priority(수기)=3
+     2.0  third_party_keyword_tools      unknown      manual   absolute_count  keyword        priority(수기)=5
+    -inf  google_trends_unofficial       prohibited   crawler  relative_index  keyword        priority(수기)=0
+    -inf  marketplace_popular_keywords   prohibited   crawler  relative_index  keyword        priority(수기)=0

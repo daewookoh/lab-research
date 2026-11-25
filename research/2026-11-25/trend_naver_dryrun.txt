@@ -1,0 +1,17 @@
+키워드 그룹 30개(키워드 150개) + 앵커 ['생수'] → 호출 8건 (2026-10-01~2026-11-24, date); 월 1회 갱신 시 월 8건, 주 1회 32~40건
+  call 1: groups=['ANCHOR', 'FD-PR-SNK', 'FD-PR-BEV', 'FD-PR-RTE', 'FD-HF-SUP']
+  call 2: groups=['ANCHOR', 'LV-CL-DET', 'LV-CL-HYG', 'LV-KT-COK', 'LV-KT-STO']
+  call 3: groups=['ANCHOR', 'BT-CO-SKN', 'BT-CO-MKP', 'BT-CO-HBD', 'BT-HC-MED']
+  call 4: groups=['ANCHOR', 'FA-AP-WOM', 'FA-AP-MEN', 'FA-AP-KID', 'FA-AC-SHO']
+  call 5: groups=['ANCHOR', 'FA-AC-BAG', 'FA-AC-ETC', 'DE-HA-SML', 'DE-HA-SEA']
+  call 6: groups=['ANCHOR', 'DE-DG-ACC', 'DE-DG-AUD', 'HO-TX-BED', 'HO-TX-DEC']
+  call 7: groups=['ANCHOR', 'HO-OF-STA', 'HO-OF-DIY', 'HB-KD-BAB', 'HB-KD-TOY']
+  call 8: groups=['ANCHOR', 'HB-PL-PET', 'HB-PL-OUT']
+
+실제 호출: 건너뜀 — API HUB 키 없음(NCP_APIGW_API_KEY_ID / NCP_APIGW_API_KEY 미설정) → blocked
+문서 예시 응답으로 파서·정규화 점검:
+  행 8개, 그룹 ['영어', '한글'], 정규화 판별: per_request
+  영어 2023-01-01: ratio→앵커('한글') 대비 0.3803 → search_index 19
+  영어 2023-02-01: ratio→앵커('한글') 대비 0.3479 → search_index 17
+  영어 2023-03-01: ratio→앵커('한글') 대비 0.2968 → search_index 15
+  영어 2023-04-01: ratio→앵커('한글') 대비 0.3264 → search_index 16
