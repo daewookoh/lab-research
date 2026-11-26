@@ -1,0 +1,2 @@
+observed_at,product_id,site,query,condition,match_type,unit_count,n_listings,price_min_krw,price_median_krw,price_max_krw,shipping_included,notes
+2026-11-26,P00000001,네이버쇼핑,감자칩 60g 16입,new,similar,16,12,9800,12900,15900,false,예시 행 — 실제 관측 아님(합성). 담당자는 이 행을 지우고 입력

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://techplan.example/lab-research/schema/trend_index.json",
+  "title": "TrendIndex (검색 트렌드 지수) v0.1",
+  "description": "소분류 1개(category_code) × 구간 1개(period, time_unit) × 소스 1개의 검색 트렌드 관측. 1레코드 = 1소분류 × 1구간 × 1소스. market_price(상품×소스×관측일)와 조인 키가 달라 별도 테이블로 둔다(D017 결론). 상대지수(ratio)는 요청 안 최대=100 이라 호출 간 비교가 안 되므로 앵커 그룹 대비 배수(rel_to_anchor)와 0~100 변환값(search_index)을 함께 저장한다. 정규화 기준이 그룹별(per_group)로 판별되면 rel_to_anchor·search_index 는 null. D018(2026-11-26). 상태: draft (연구책임자 승인 전; 약관 확인 전까지 네이버 응답은 저장하지 않음).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trend_id", "category_code", "period", "time_unit", "source", "ratio", "anchor", "normalization", "rel_to_anchor", "search_index", "run_id"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "0.1"},
+    "trend_id": {"type": "string", "pattern": "^T[0-9]{8}$", "description": "T + 8자리 숫자."},
+    "category_code": {"type": "string", "pattern": "^[A-Z]{2}-[A-Z]{2}-[A-Z]{3}$", "description": "categories.yaml 소분류 코드(예: FD-PR-SNK). 키워드 그룹 groupName 과 같다."},
+    "period": {"type": "string", "format": "date", "description": "구간 시작일(네이버 응답 period 그대로). time_unit=month 면 그 달 1일."},
+    "time_unit": {"type": "string", "enum": ["date", "week", "month"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "collected_by"],
+      "properties": {
+        "platform": {"type": "string", "enum": ["naver_datalab_search", "naver_shopping_insight_cat", "naver_shopping_insight_kw", "google_trends_api_alpha", "naver_datalab_web", "manual", "synthetic"], "description": "trend_sources.yaml platform. prohibited 소스는 없음."},
+        "collected_by": {"type": "string", "enum": ["manual", "api", "synthetic"]},
+        "keywords": {"type": ["array", "null"], "items": {"type": "string", "maxLength": 50}, "maxItems": 20, "description": "이 그룹에 넣은 검색어(재현용). trend_keywords.yaml 버전과 함께 기록."},
+        "keywords_version": {"type": ["string", "null"], "maxLength": 20}
+      }
+    },
+    "ratio": {"type": "number", "minimum": 0, "maximum": 100, "description": "소스가 준 상대지수 원값(요청 안 최대=100)."},
+    "anchor": {"type": ["string", "null"], "maxLength": 50, "description": "같은 요청에 넣은 앵커 그룹의 키워드(예: '생수'). 앵커 없이 받은 값이면 null."},
+    "anchor_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "같은 구간 앵커의 ratio."},
+    "normalization": {"type": "string", "enum": ["per_request", "per_group", "unknown"], "description": "src/collect/trend_naver.detect_normalization 결과. per_group 이면 앵커 정규화 무의미."},
+    "rel_to_anchor": {"type": ["number", "null"], "minimum": 0, "description": "ratio ÷ anchor_ratio (per_request 일 때만). 앵커와 같은 검색량 = 1.0."},
+    "search_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "rel_to_anchor → 0~100 (앵커=50, 2배 이상=100, 가정). market_price.search_index 에 조인해 넣는 값."},
+    "run_id": {"type": "string", "maxLength": 40, "description": "수집 실행 ID(store/manifest.jsonl 의 run_id). 어느 호출에서 온 값인지 역추적."},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

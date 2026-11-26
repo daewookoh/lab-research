@@ -1,0 +1,52 @@
+
+## 1. pipeline.yaml 검증·월간 호출 예산
+job 7개, 검증 오류 0건 []
+job                       platform                    cadence     runs/월      호출/월        한도/월      비율  gate
+J01_price_go_kr_file      price_go_kr                 monthly        1.0         1           -       -  runnable
+J02_price_go_kr_api       price_go_kr                 weekly        4.33        43           -       -  planned
+J03_gyeongbuk_price_api   gyeongbuk_price             monthly        1.0        20     300,000    0.0%  planned
+J04_manual_form           manual_search               daily         30.0         0           -       -  runnable
+J05_naver_apihub_shop     naver_apihub_shop           weekly        4.33    86,667     775,000   11.2%  planned
+J06_naver_datalab_search  naver_datalab_search        monthly        1.0         8      50,000    0.0%  planned
+J07_coupang_partners      coupang_partners            on_demand      0.0         0      21,600    0.0%  planned
+게이트: {'runnable': 2, 'planned': 5}
+월 호출 합계 86,739 (지금 실행 가능한 job 만 1)
+J05 1회 실행 20,000 호출: 50 RPS 면 6.7분, 1 RPS 면 5.6시간
+의도적 오설정 2건(prohibited 소스 job, 테이블 불일치) → 오류 2건:
+  - job JX: tos_status=prohibited 소스는 job 으로 쓸 수 없음
+  - job JY: platform price_go_kr 은 market_price 소스인데 table=trend_index
+
+## 2. append-only 저장소·중복 처리 (합성 v2 market_price 14,945건)
+레코드 14,945 / 상품 10,000 / 플랫폼 ['brand_mall', 'bunjang', 'coupang', 'danawa', 'enuri', 'gmarket', 'joonggonara', 'naver_shopping']
+1차 적재: 14,945건 → new 14,945 dup 0 conflict 0  (0.63s)
+2차 재적재(동일): new 0 dup 14,945 conflict 0  (0.39s)
+3차 변경분(내용변경 50 + 새 관측일 100 + 동일 200): new 100 dup 200 conflict 50  (0.27s)
+파티션 32개 (platform × 월), 본문 8.35MB, 레코드당 555B, quarantine 50건, manifest 3행
+파티션(플랫폼별 월 수): {'brand_mall': 4, 'bunjang': 4, 'coupang': 4, 'danawa': 4, 'enuri': 4, 'gmarket': 4, 'joonggonara': 4, 'naver_shopping': 4}
+운영 추정(네이버 허용 가정): 주 20,000행 → 연 1,040,000행 ≈ 0.58GB(비압축) / gzip 약 1/8 가정 72MB — Git 에 둘 크기가 아님(11-18 질문 3)
+existing() 전체 스캔: 15,045키 0.26s → 연 1,040,000행이면 약 18s/실행 (파티션 색인 필요 시점: 설계 §4)
+
+## 3. 수기 입력 폼(manual_price_form.csv) → market_price 변환·검증
+폼 열: ['observed_at', 'product_id', 'site', 'query', 'condition', 'match_type', 'unit_count', 'n_listings', 'price_min_krw', 'price_median_krw', 'price_max_krw', 'shipping_included', 'notes']
+행 23 (정상 20 + 의도적 오류 3) → 오류 4건, 경고 2건
+  - [cross] M00000021: observed_at 2026-12-01 가 기준일 2026-11-26 이후
+  - [cross] M00000022: min 99,999,999 ≤ median 46,300 ≤ max 63,800 순서 위반
+  - [cross] M00000022: 같은 상품·채널·플랫폼·상태·관측일 레코드가 #1 에 이미 있음
+  - [cross] M00000023: 같은 상품·채널·플랫폼·상태·관측일 레코드가 #2 에 이미 있음
+  · [warn] M00000004: 신품 시세가 정상가 초과 (1.33배) → 정상가가 낮게 잡혔을 수 있음
+  · [warn] M00000011: 신품 시세가 정상가 초과 (1.41배) → 정상가가 낮게 잡혔을 수 있음
+site → platform/channel: [(('bunjang', 'secondhand_app'), 5), (('coupang_web', 'open_market'), 4), (('danawa', 'price_comparison'), 5), (('joongna', 'secondhand_app'), 1), (('naver_shopping_web', 'price_comparison'), 6), (('other', 'price_comparison'), 2)]
+예: {"schema_version": "0.1", "price_id": "M00000001", "product_id": "P00000109", "observed_at": "2026-11-26", "source": {"channel": "price_comparison", "platform": "naver_shopping_web", "collected_by": "manual", "query": "프라이팬 세트 그레이"}, "match_type": "similar", "condition": "new", "unit_count": 1, "n_l ...
+
+## 4. 트렌드 → trend_index 레코드 (문서 예시 응답, 숫자 의미 없음)
+정규화 판별 per_request, 레코드 4건, 스키마·교차 오류 0건 []
+예: {"schema_version": "0.1", "trend_id": "T00000001", "category_code": "FD-PR-SNK", "period": "2023-01-01", "time_unit": "month", "source": {"platform": "naver_datalab_search", "collected_by": "api", "keywords": ["감자칩", "쿠키"], "keywords_version": "0.1"}, "ratio": 26.67976, "anchor": "생수", "anchor_ratio": 70.15342, "normalization": "per_request", "rel_to_anchor": 0.380306, "search_index": 19, "run_id": "J06-DRYRUN", "created_at": "2026-11-26T08:34:41+00:00"}
+per_group 가정 시 search_index: [None, None, None, None] 오류 []
+trend_index 적재: new 4 → 재적재 dup 4, 파티션 ['trend_index/naver_datalab_search/2023-02.jsonl', 'trend_index/naver_datalab_search/2023-01.jsonl', 'trend_index/naver_datalab_search/2023-03.jsonl', 'trend_index/naver_datalab_search/2023-04.jsonl']
+
+## 5. market_price.source.platform enum 제안 (승인 전 — 스키마 미수정)
+제안 enum 16개(prohibited 포함 — 수기 관측 사이트 식별용; 금지는 collected_by∈{api,crawler} 에만 적용):
+  ['bunjang', 'coupang_partners', 'coupang_web', 'daangn', 'danawa', 'domeggook', 'enuri', 'gmarket_auction', 'gyeongbuk_price', 'joongna', 'manual_search', 'naver_apihub_shop', 'naver_shopping_web', 'price_go_kr', 'st11_openapi', 'other']
+합성 v2 가 쓰는 platform ['brand_mall', 'bunjang', 'coupang', 'danawa', 'enuri', 'gmarket', 'joonggonara', 'naver_shopping'] 중 enum 에 없는 것: ['brand_mall', 'coupang', 'gmarket', 'joonggonara', 'naver_shopping'] → enum 반영 시 합성 생성기(D034)도 갱신 필요
+
+끝.

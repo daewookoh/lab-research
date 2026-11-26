@@ -6,3 +6,5 @@ __pycache__/
 !data/synth/*.parquet
 .env
 .DS_Store
+data/collect/store/
+data/collect/inbox/

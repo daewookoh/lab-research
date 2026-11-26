@@ -1,0 +1,146 @@
+# 시세·트렌드 수집 파이프라인 설정 v0.1 — D018 (2026-11-26) / AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 원칙
+#   1. 여기 적힌 job 만 실행한다. job 의 platform 은 price_sources.yaml 또는 trend_sources.yaml 에 있어야 하고,
+#      tos_status=prohibited 소스는 job 으로 쓸 수 없다(로더가 거부).
+#   2. tos_status=conditional / unknown 소스는 approved: true 가 되기 전엔 "계획" 만 되고 실행·저장되지 않는다(약관 게이트).
+#      approved 는 연구책임자가 서면 확인을 받은 뒤 날짜와 근거를 적어 바꾼다(approved_on, approval_note).
+#   3. 저장은 append-only: data/collect/store/<table>/<platform>/<YYYY-MM>.jsonl + 실행 매니페스트 store/manifest.jsonl.
+#      같은 레코드(dedup 키 동일·내용 동일)는 다시 쓰지 않고, 키 동일·내용 다름은 quarantine 으로 보내 사람이 본다(덮어쓰기 금지).
+#   4. 원문 응답(raw)은 약관이 저장을 허용한 소스만 store/raw/ 에 남긴다(raw_retain). 네이버 계열은 확인 전 false.
+#
+# 필드
+#   table        : market_price | trend_index      (레코드가 들어갈 테이블·스키마)
+#   platform     : 소스 식별자 (price_sources.yaml / trend_sources.yaml 의 platform)
+#   cadence      : monthly | weekly | daily | on_demand
+#   when         : cron 비슷한 설명 (실제 스케줄러에 옮길 때의 기준; KST)
+#   calls_per_run: 1회 실행의 API 호출(또는 파일 다운로드) 수 — 예산 계산용
+#   limit        : 소스 한도 (period: month|day|minute, calls) — 없으면 null
+#   approved     : 약관 게이트. clear 소스는 true 로 둔다.
+#   prerequisite : 약관과 별개로 남은 선행 조건(키 발급·활용신청·계정). 있으면 approved 와 무관하게 planned.
+#   raw_retain   : 원문 응답 보관 여부
+#   products_per_run : 상품 단위 소스에서 1회 실행이 덮는 상품 수(예산 계산용). 파일 소스는 null.
+
+version: "0.1"
+defined_on: "2026-11-26"
+status: draft
+timezone: Asia/Seoul
+store_root: data/collect/store          # .gitignore 대상 (11-18 질문 3 저장소 용량 정책 미답 — 확정 전까지 Git 밖)
+
+jobs:
+
+  - id: J01_price_go_kr_file
+    table: market_price
+    platform: price_go_kr
+    cadence: monthly
+    when: "매월 15일 03:00 (포털 월간 갱신 표기일 다음 날; 파일이 아직 전월 것이면 건너뜀)"
+    calls_per_run: 1
+    products_per_run: null
+    limit: null
+    approved: true
+    approved_on: "2026-11-24"
+    approval_note: "공공데이터포털 이용허락 '제한 없음'(D016 1차 확인)"
+    prerequisite: null
+    raw_retain: true
+    note: "CSV 전체(약 23만 행)를 받아 품목 매칭 후 상품×조사일 집계 → market_price(channel=offline_store, collected_by=api, match_type=similar)."
+
+  - id: J02_price_go_kr_api
+    table: market_price
+    platform: price_go_kr
+    cadence: weekly
+    when: "매주 월 03:30 — 파일 적재 이후 변경분 보강(상품ID 기준 조회)"
+    calls_per_run: 10
+    products_per_run: 10
+    limit: null
+    approved: true
+    approved_on: "2026-11-24"
+    approval_note: "공공데이터포털 이용허락 '제한 없음'·출처표시(D016 1차 확인)"
+    prerequisite: "공공데이터포털 GW API 활용신청(회사 계정, 11-24 질문 6) — 승인 후 null 로"
+    raw_retain: true
+    note: "D019 v1 범위(10개 품목). 포털 트래픽 한도 미기재 → 승인 문서에서 확인 후 limit 기입."
+
+  - id: J03_gyeongbuk_price_api
+    table: market_price
+    platform: gyeongbuk_price
+    cadence: monthly
+    when: "매월 16일 03:00"
+    calls_per_run: 20
+    products_per_run: 20
+    limit: {period: day, calls: 10000}
+    approved: true
+    approved_on: "2026-11-24"
+    approval_note: "제한 없음·자동승인(D016 1차 확인). 식료품·경북 한정 보조 소스"
+    prerequisite: "포털 활용신청(자동승인) — 키 발급 후 null 로"
+    raw_retain: true
+    note: "FD 소분류 보조. 참가격과 같은 품목이면 offline_store 채널 안에서 platform 으로 구분."
+
+  - id: J04_manual_form
+    table: market_price
+    platform: manual_search
+    cadence: daily
+    when: "매일 18:00 — data/collect/inbox/manual_price_*.csv 가 있으면 적재"
+    calls_per_run: 0
+    products_per_run: null
+    limit: null
+    approved: true
+    approved_on: "2026-11-24"
+    approval_note: "담당자 수기 검색 — 외부 약관 해당 없음(사람이 화면에서 본 값을 옮겨 적음)"
+    prerequisite: null
+    raw_retain: true
+    note: "입력 폼 data/collect/manual_price_form.csv. 현행 운영 방식(11-24 질문 7 미답)에 맞춰 열을 조정할 수 있음."
+
+  - id: J05_naver_apihub_shop
+    table: market_price
+    platform: naver_apihub_shop
+    cadence: weekly
+    when: "매주 월 04:00 — 보유 상품 전체(신·중고 각 1회)"
+    calls_per_run: 20000
+    products_per_run: 10000
+    limit: {period: month, calls: 775000}
+    approved: false
+    approved_on: null
+    approval_note: "약관 7.3③ 저장·가공 금지 — 네이버 클라우드 서면 확인(11-24 질문 5) 전 실행 금지"
+    prerequisite: "API HUB 키 발급 + 쇼핑 검색 제공 여부 명세 확인"
+    raw_retain: false
+    note: "상품 10,000 × 2(new/used) = 20,000 호출/주. 월 4.4회 → 약 88,000 호출/월(한도의 11%). 50 RPS 라 1회 실행 약 7분(실제는 1 RPS 로 늦춰 5.6시간 — 7.3⑫ 과부하 금지)."
+
+  - id: J06_naver_datalab_search
+    table: trend_index
+    platform: naver_datalab_search
+    cadence: monthly
+    when: "매월 1일 05:00 — 전월 1일~말일 date 단위, 앵커 포함 8 호출"
+    calls_per_run: 8
+    products_per_run: null
+    limit: {period: month, calls: 50000}
+    approved: false
+    approved_on: null
+    approval_note: "같은 약관 7.3③ — 서면 확인(11-25 질문 10) 전 실행 금지. 한도 50,000 은 D016 기억값(재확인 실패)"
+    prerequisite: "API HUB 키 발급(D017b 샘플 호출로 정규화 기준 확인 선행)"
+    raw_retain: false
+    note: "src/collect/trend_naver.py plan_calls → parse → detect_normalization → normalize_by_anchor(period) → to_search_index. per_group 판별 시 search_index 를 쓰지 않고 rel_to_anchor=null 로 저장."
+
+  - id: J07_coupang_partners
+    table: market_price
+    platform: coupang_partners
+    cadence: on_demand
+    when: "보류 — 파트너스 가입·약관 확인(11-24 질문 8) 후 주 1회로 전환"
+    calls_per_run: 10000
+    products_per_run: 10000
+    limit: {period: hour, calls: 30}
+    approved: false
+    approved_on: null
+    approval_note: "파트너스 약관 미열람. 한도 상충(분 50 vs 시간 30) — 엄격한 쪽(시간 30)으로 예산 계산"
+    prerequisite: "쿠팡 파트너스 가입(사업자) + 약관 원문 확인"
+    raw_retain: false
+    note: "호출당 10건이라 분포가 아닌 상위 10개 등록가. 시간당 30회 제한이 맞으면 10,000 상품에 14일 걸려 weekly 불가 → 샘플 500 상품으로 축소 검토."
+
+# 테이블별 dedup 키 (스키마 교차 검증과 동일해야 함)
+dedup_keys:
+  market_price: [product_id, source.channel, source.platform, condition, observed_at]
+  trend_index: [category_code, period, time_unit, source.platform]
+
+# 보관·용량
+retention:
+  manifest: forever
+  quarantine_days: 90
+  raw_days: 365
