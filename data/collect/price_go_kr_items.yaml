@@ -1,0 +1,127 @@
+# 참가격(price_go_kr) 품목 매칭표 v0.1 — D019 (2026-11-27) / AI 연구보조(Claude) 초안, 연구책임자 승인 전
+#
+# 참가격 CSV 의 상품명(GOOD_NAME)을 우리 상품(product_id)에 대응시키는 규칙. 1 item = 참가격 상품명 패턴 1개.
+# 여러 item 이 같은 product_id 를 가리킬 수 있다(유사 상품 여러 개 → 한 시세 레코드로 집계).
+#
+# 규칙 (src/collect/price.py 의 match_item)
+#   include_all : 정규화한 상품명(공백 제거·소문자)에 모두 들어 있어야 하는 토큰
+#   include_any : 그 중 하나 이상 들어 있어야 하는 토큰 (비어 있으면 생략)
+#   exclude_any : 하나라도 들어 있으면 제외
+#   content     : 상품명에서 읽은 용량·수량(예: 60g, 175ml, 3l, 120정, 70매)이 value 의 ±tolerance 안이어야 매칭.
+#                 상품명에 용량이 없으면 require_content 가 false 일 때만 통과.
+#   unit_count  : 참가격 관측 1단위의 낱개 수(대부분 1 — 참가격은 낱개 소매가). 집계 시 우리 상품 unit_count 로 환산.
+#   match_type  : similar(기본) — 참가격 품목은 특정 브랜드 상품이고 우리 상품은 다른 브랜드·묶음이라 v1 은 전부 similar.
+#
+# 주의: 실제 참가격 상품명 표기는 D018b(CSV 수령) 전까지 확인하지 못했다. 토큰·용량은 소분류 examples 어휘(D002)와
+#       우리 상품 예시(product_examples.jsonl)에서 잡은 가정이며, 실 파일을 받으면 unmatched 상위 목록을 보고 고친다.
+
+version: "0.1"
+defined_on: "2026-11-27"
+status: draft
+platform: price_go_kr
+channel: offline_store
+condition: new
+shipping_included: true      # 오프라인 매장 실판매가 — 배송비 개념 없음
+exclude_sale: true           # 세일여부=Y 행은 통계에서 제외(정상 소매가 기준선 용도), 건수만 notes 에 남김
+exclude_plus_one: true       # 원플러스원=Y 행도 제외
+content_tolerance: 0.25      # 용량 ±25%
+
+items:
+  - item_id: PG01
+    product_id: P00000001
+    label: 감자칩 (오리지널 60g 급)
+    include_all: [감자칩]
+    exclude_any: [저염, 대용량]
+    content: {value: 60, unit: g}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG02
+    product_id: P00000002
+    label: 캔커피 175ml 급
+    include_all: [커피]
+    include_any: [캔, can]
+    exclude_any: [스틱, 믹스, 원두]
+    content: {value: 175, unit: ml}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG03
+    product_id: P00000003
+    label: 컵라면 65g 급 (소컵)
+    include_all: [컵]
+    include_any: [라면, 면]
+    exclude_any: [큰컵, 대컵, 왕컵, 봉지]
+    content: {value: 65, unit: g}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG04
+    product_id: P00000004
+    label: 비타민C 120정 급
+    include_all: [비타민]
+    include_any: [c, 씨]
+    exclude_any: [어린이, 츄어블, 드링크]
+    content: {value: 120, unit: 정}
+    require_content: false
+    unit_count: 1
+
+  - item_id: PG05
+    product_id: P00000005
+    label: 액체 세탁세제 3L 리필
+    include_all: [세제]
+    include_any: [액체, 리필, 세탁]
+    exclude_any: [주방, 가루, 분말, 캡슐]
+    content: {value: 3, unit: l}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG06
+    product_id: P00000006
+    label: 유리 밀폐용기 (낱개)
+    include_all: [밀폐용기]
+    include_any: [유리, 글라스]
+    exclude_any: [플라스틱, pp]
+    content: null
+    require_content: false
+    unit_count: 1              # 참가격은 낱개 1개 가격 → 우리 상품(5종 세트)은 ×5 환산
+
+  - item_id: PG07
+    product_id: P00000007
+    label: 수분크림 50ml 급
+    include_all: [크림]
+    include_any: [수분, 보습]
+    exclude_any: [핸드, 바디, 선, 아이, 클렌징]
+    content: {value: 50, unit: ml}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG08
+    product_id: P00000014
+    label: 유아 물티슈 70매 급
+    include_all: [물티슈]
+    include_any: [유아, 아기, 베이비, baby]
+    exclude_any: [휴대용, 캡형]
+    content: {value: 70, unit: 매}
+    require_content: true
+    unit_count: 1              # 1팩 → 우리 상품(10팩) ×10 환산
+
+  - item_id: PG09
+    product_id: P00000014
+    label: 유아 물티슈 100매 급 (같은 상품의 다른 용량 — PG08 과 같은 product_id 로 합산)
+    include_all: [물티슈]
+    include_any: [유아, 아기, 베이비, baby]
+    exclude_any: [휴대용, 캡형]
+    content: {value: 100, unit: 매}
+    require_content: true
+    unit_count: 1
+
+  - item_id: PG10
+    product_id: P00000015
+    label: 강아지 간식 100g 급
+    include_all: [간식]
+    include_any: [강아지, 애견, 반려견, 독]
+    exclude_any: [고양이, 캣]
+    content: {value: 100, unit: g}
+    require_content: true
+    unit_count: 1

@@ -42,7 +42,7 @@ jobs:
     approval_note: "공공데이터포털 이용허락 '제한 없음'(D016 1차 확인)"
     prerequisite: null
     raw_retain: true
-    note: "CSV 전체(약 23만 행)를 받아 품목 매칭 후 상품×조사일 집계 → market_price(channel=offline_store, collected_by=api, match_type=similar)."
+    note: "CSV 전체(약 23만 행)를 받아 품목 매칭 후 상품×조사일 집계 → market_price(channel=offline_store, collected_by=api, match_type=similar). 구현 D019: src/collect/price.py + 매칭표 data/collect/price_go_kr_items.yaml (실 파일 열 이름·표기는 D018b 수령 후 확인)."
 
   - id: J02_price_go_kr_api
     table: market_price

@@ -203,7 +203,8 @@ class Store:
                         out[record_key(r, kf)] = content_hash(r)
         return out
 
-    def ingest(self, table: str, records: list[dict], job_id: str, run_id: str | None = None) -> dict:
+    def ingest(self, table: str, records: list[dict], job_id: str, run_id: str | None = None, extra: dict | None = None) -> dict:
+        """extra: manifest 에 덧붙일 출처 정보(예: source_file). 레코드·해시에는 들어가지 않는다(D019)."""
         run_id = run_id or f"{job_id}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:6]}"
         kf = self.dedup_keys[table]
         have = self.existing(table)
@@ -227,7 +228,7 @@ class Store:
                 with open(qdir / f"{table}.jsonl", "a", encoding="utf-8") as f:
                     f.write(json.dumps({"run_id": run_id, "reason": "same_key_different_content", "key": list(k), "record": rec}, ensure_ascii=False) + "\n")
                 counts["n_conflict"] += 1
-        manifest = {"run_id": run_id, "job_id": job_id, "table": table, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **counts}
+        manifest = {"run_id": run_id, "job_id": job_id, "table": table, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **counts, **(extra or {})}
         with open(self.root / "manifest.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(manifest, ensure_ascii=False) + "\n")
         return manifest
